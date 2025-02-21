@@ -6,5 +6,5 @@ impl Service {
     }
 }
 
-#[zbus::interface(name = "org.gantry.config")]
+#[zbus::interface(name = "org.gantry.server")]
 impl Service {}

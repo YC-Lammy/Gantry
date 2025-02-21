@@ -29,7 +29,9 @@ pub enum PrinterErrorCode {
     /// print job already running
     PrintJobRunning,
     /// file not found
-    FileNotFound
+    FileNotFound,
+    /// file system has full capacity
+    FileCapacityFull
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type, Clone)]
@@ -216,7 +218,7 @@ pub trait Printer{
     /////////////////////////////////////////////
     
     /// start a print job
-    pub async fn start_print_job(&self, token: &str, filename: String) -> PrinterResult<()>;
+    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<()>;
     /// pause the print job
     pub async fn pause_print_job(&self, token: &str) -> PrinterResult<()>;
     /// resume the print job
@@ -231,7 +233,11 @@ pub trait Printer{
     /// list avaliable gcode files
     pub async fn list_files(&self, token: &str) -> PrinterResult<Vec<PrinterGcodeFile>>;
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, token: &str, filename: String) -> PrinterResult<()>;
+    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<()>;
     /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
-    pub async fn scan_file_metadata(&self, token: &str, filename: String) -> PrinterResult<()>;
+    pub async fn scan_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<()>;
+    /// upload a gcode file
+    pub async fn upload_file(&self, token: &str, filename: &str, filedata: String) -> PrinterResult<()>;
+    /// download a gcode file
+    pub async fn download_file(&self, filename: &str) -> PrinterResult<String>;
 }
