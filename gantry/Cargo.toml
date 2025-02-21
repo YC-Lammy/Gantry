@@ -1,0 +1,15 @@
+[package]
+name = "gantry"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gantry-api = {path = "../gantry-api"}
+
+anyhow = "*"
+axum = "*"
+clap = {version = "4.5", features = ["derive"]}
+serde = {version = "1.0", features = ["derive"]}
+tokio = {version ="1.43", features = ["full"]}
+zbus = {version = "5.5", default-features = false, features = ["tokio"]}
+zvariant = "5.4"
