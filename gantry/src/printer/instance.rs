@@ -88,8 +88,8 @@ impl Instance {
     /// checks authentication
     pub async fn validate_token_state(&self, token: &str) -> Option<PrinterError> {
         // validate token
-        if let Err(err) = self.validate_token(token){
-            return Some(err)
+        if let Err(err) = self.validate_token(token) {
+            return Some(err);
         }
 
         // validate state
@@ -112,11 +112,11 @@ impl Instance {
             super::printer::State::Ready => {}
         }
 
-        return None
+        return None;
     }
 
     /// validates the token
-    pub fn validate_token(&self, token: &str) -> Result<(), PrinterError>{
+    pub fn validate_token(&self, token: &str) -> Result<(), PrinterError> {
         // validate token
         let (is_valid, is_timeout) = self.auth.validate_token(token);
 
@@ -136,7 +136,7 @@ impl Instance {
             });
         }
 
-        return Ok(())
+        return Ok(());
     }
 
     /////////////////////////////////////////////
@@ -144,7 +144,7 @@ impl Instance {
     /////////////////////////////////////////////
 
     /// login to the printer
-    pub async fn login(&self, pwd: &str) -> PrinterResult<PrinterLogin>{
+    pub async fn login(&self, pwd: &str) -> PrinterResult<PrinterLogin> {
         match self.auth.login(pwd) {
             Some((token, refresh_token)) => PrinterResult::ok(PrinterLogin {
                 token,
@@ -157,7 +157,7 @@ impl Instance {
         }
     }
     /// logout from the printer
-    pub async fn logout(&self, token: &str) -> PrinterResult<()>{
+    pub async fn logout(&self, token: &str) -> PrinterResult<()> {
         match self.auth.logout(token) {
             true => PrinterResult::ok(()),
             false => PrinterResult::err(PrinterError {
@@ -167,7 +167,7 @@ impl Instance {
         }
     }
     /// reset password
-    pub async fn reset_password(&self, token: &str, new_password: &str) -> PrinterResult<()>{
+    pub async fn reset_password(&self, token: &str, new_password: &str) -> PrinterResult<()> {
         if !self.auth.reset_password(token, new_password) {
             return PrinterResult::err(PrinterError {
                 code: PrinterErrorCode::AuthFailed,
@@ -178,7 +178,7 @@ impl Instance {
         return PrinterResult::ok(());
     }
     /// refresh token
-    pub async fn refresh_token(&self, refresh_token: &str) -> PrinterResult<PrinterLogin>{
+    pub async fn refresh_token(&self, refresh_token: &str) -> PrinterResult<PrinterLogin> {
         match self.auth.refresh_token(refresh_token) {
             Some((token, refresh_token)) => PrinterResult::ok(PrinterLogin {
                 token,
@@ -196,7 +196,7 @@ impl Instance {
     /////////////////////////////////////////////
 
     /// get printer info
-    pub async fn get_info(&self) -> PrinterResult<PrinterInfo>{
+    pub async fn get_info(&self) -> PrinterResult<PrinterInfo> {
         let printer_state = self.state().await;
 
         let state: PrinterState;
@@ -229,18 +229,18 @@ impl Instance {
     }
 
     /// emergency stop
-    pub fn emergency_stop(&self) -> PrinterResult<()>{
+    pub fn emergency_stop(&self) -> PrinterResult<()> {
         // block the current thread to stop ASAP
         tokio::task::block_in_place(|| {
             let mut printer = self.printer.blocking_write();
             printer.emergency_stop();
         });
 
-        return PrinterResult::ok(())
+        return PrinterResult::ok(());
     }
 
     /// restart the printer
-    pub async fn restart(&self) -> PrinterResult<()>{
+    pub async fn restart(&self) -> PrinterResult<()> {
         // acquire write lock
         let mut printer = self.printer.write().await;
 
@@ -265,11 +265,11 @@ impl Instance {
             }
         };
 
-        return PrinterResult::ok(())
+        return PrinterResult::ok(());
     }
 
     /// list objects loaded
-    pub async fn list_objects(&self) -> PrinterResult<HashMap<String, String>>{
+    pub async fn list_objects(&self) -> PrinterResult<HashMap<String, String>> {
         todo!()
     }
 
@@ -281,25 +281,25 @@ impl Instance {
     /////////////////////////////////////////////
     ///////////       Extensions      ///////////
     /////////////////////////////////////////////
-    
+
     /// list extensions loaded
-    pub async fn list_extensions(&self) -> PrinterResult<HashMap<String, PrinterExtension>>{
+    pub async fn list_extensions(&self) -> PrinterResult<HashMap<String, PrinterExtension>> {
         todo!()
     }
     /// install an extension
-    pub async fn install_extension(&self, repo: String) -> PrinterResult<()>{
+    pub async fn install_extension(&self, repo: String) -> PrinterResult<()> {
         todo!()
     }
     /// remove an extension
-    pub async fn remove_extension(&self, name: String) -> PrinterResult<()>{
+    pub async fn remove_extension(&self, name: String) -> PrinterResult<()> {
         todo!()
     }
     /// download extension config
-    pub async fn download_extension_config(&self, name: &str) -> PrinterResult<String>{
+    pub async fn download_extension_config(&self, name: &str) -> PrinterResult<String> {
         todo!()
     }
     /// upload extension config
-    pub async fn upload_extension_config(&self, name: &str, config: String) -> PrinterResult<()>{
+    pub async fn upload_extension_config(&self, name: &str, config: String) -> PrinterResult<()> {
         todo!()
     }
 
@@ -320,61 +320,61 @@ impl Instance {
     /////////////////////////////////////////////
 
     /// start a print job
-    pub async fn start_print_job(&self, filename: &str) -> PrinterResult<()>{
+    pub async fn start_print_job(&self, filename: &str) -> PrinterResult<()> {
         todo!()
     }
     /// pause the print job
-    pub async fn pause_print_job(&self) -> PrinterResult<()>{
+    pub async fn pause_print_job(&self) -> PrinterResult<()> {
         todo!()
     }
     /// resume the print job
-    pub async fn resume_print_job(&self) -> PrinterResult<()>{
+    pub async fn resume_print_job(&self) -> PrinterResult<()> {
         todo!()
     }
     /// cancel the print job
-    pub async fn cancel_print_job(&self) -> PrinterResult<()>{
+    pub async fn cancel_print_job(&self) -> PrinterResult<()> {
         todo!()
     }
 
     /// queue print job to run after current print job is finished
-    pub async fn queue_print_job(&self, filename: &str) -> PrinterResult<PrinterQueuePrintJob>{
+    pub async fn queue_print_job(&self, filename: &str) -> PrinterResult<PrinterQueuePrintJob> {
         todo!()
     }
     //// delete a print job in queue
-    pub async fn delete_queue_print_job(&self, id: u64) -> PrinterResult<()>{
+    pub async fn delete_queue_print_job(&self, id: u64) -> PrinterResult<()> {
         todo!()
     }
 
     /////////////////////////////////////////////
     ///////////      Gcode files      ///////////
     /////////////////////////////////////////////
-    
+
     /// list avaliable gcode files
-    pub async fn list_files(&self) -> PrinterResult<Vec<PrinterGcodeFile>>{
+    pub async fn list_files(&self) -> PrinterResult<Vec<PrinterGcodeFile>> {
         todo!()
     }
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, filename: &str) -> PrinterResult<()>{
+    pub async fn get_file_metadata(&self, filename: &str) -> PrinterResult<()> {
         todo!()
     }
     /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
-    pub async fn scan_file_metadata(&self, filename: &str) -> PrinterResult<()>{
+    pub async fn scan_file_metadata(&self, filename: &str) -> PrinterResult<()> {
         todo!()
     }
     /// upload a gcode file
-    pub async fn upload_file(&self, filename: &str, filedata: String) -> PrinterResult<()>{
+    pub async fn upload_file(&self, filename: &str, filedata: String) -> PrinterResult<()> {
         todo!()
     }
     /// download a gcode file
-    pub async fn download_file(&self, filename: &str) -> PrinterResult<String>{
+    pub async fn download_file(&self, filename: &str) -> PrinterResult<String> {
         todo!()
     }
     /// download the printer config
-    pub async fn download_printer_config(&self) -> PrinterResult<String>{
+    pub async fn download_printer_config(&self) -> PrinterResult<String> {
         todo!()
     }
     /// upload the printer config
-    pub async fn upload_printer_config(&self, config: String) -> PrinterResult<()>{
+    pub async fn upload_printer_config(&self, config: String) -> PrinterResult<()> {
         todo!()
     }
 }

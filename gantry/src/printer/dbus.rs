@@ -42,18 +42,18 @@ impl DBusInstance {
     /// get printer info
     pub async fn get_info(&self, token: &str) -> PrinterResult<PrinterInfo> {
         // check for token only
-        if let Err(err) = self.inner.validate_token(token){
-            return PrinterResult::err(err)
+        if let Err(err) = self.inner.validate_token(token) {
+            return PrinterResult::err(err);
         }
 
-        return self.inner.get_info().await
+        return self.inner.get_info().await;
     }
 
     /// emergency stop
     pub async fn emergency_stop(&self, token: &str) -> PrinterResult<()> {
         // check for token only
-        if let Err(err) = self.inner.validate_token(token){
-            return PrinterResult::err(err)
+        if let Err(err) = self.inner.validate_token(token) {
+            return PrinterResult::err(err);
         }
 
         self.inner.emergency_stop();
@@ -64,8 +64,8 @@ impl DBusInstance {
     /// restart gantry
     pub async fn restart(&self, token: &str) -> PrinterResult<()> {
         // check for token only
-        if let Err(err) = self.inner.validate_token(token){
-            return PrinterResult::err(err)
+        if let Err(err) = self.inner.validate_token(token) {
+            return PrinterResult::err(err);
         }
 
         self.inner.restart().await;
@@ -79,7 +79,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.list_objects().await
+        return self.inner.list_objects().await;
     }
 
     /// query endstop status
@@ -89,8 +89,6 @@ impl DBusInstance {
         }
 
         return self.inner.query_endstops().await;
-
-        
     }
 
     /////////////////////////////////////////////
@@ -106,7 +104,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.list_extensions().await
+        return self.inner.list_extensions().await;
     }
 
     /// install an extension
@@ -115,7 +113,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.install_extension(repo).await
+        return self.inner.install_extension(repo).await;
     }
 
     /// remove an extension
@@ -124,25 +122,34 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.remove_extension(name).await
+        return self.inner.remove_extension(name).await;
     }
 
     /// download extension config
-    pub async fn download_extension_config(&self, token: &str, name: &str) -> PrinterResult<String> {
+    pub async fn download_extension_config(
+        &self,
+        token: &str,
+        name: &str,
+    ) -> PrinterResult<String> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
 
-        return self.inner.download_extension_config(name).await
+        return self.inner.download_extension_config(name).await;
     }
 
     /// upload extension config
-    pub async fn upload_extension_config(&self, token: &str, name:&str, config: String) -> PrinterResult<()> {
+    pub async fn upload_extension_config(
+        &self,
+        token: &str,
+        name: &str,
+        config: String,
+    ) -> PrinterResult<()> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
 
-        return self.inner.upload_extension_config(name, config).await
+        return self.inner.upload_extension_config(name, config).await;
     }
 
     /////////////////////////////////////////////
@@ -157,7 +164,7 @@ impl DBusInstance {
         }
 
         // run gcode script
-        return self.inner.run_gcode(script).await
+        return self.inner.run_gcode(script).await;
     }
 
     /// Retrieves a list of registered GCode Command Descriptions.
@@ -167,7 +174,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.get_gcode_help().await
+        return self.inner.get_gcode_help().await;
     }
 
     /////////////////////////////////////////////
@@ -210,7 +217,11 @@ impl DBusInstance {
     }
 
     /// queue print job to run after current print job is finished
-    pub async fn queue_print_job(&self, token: &str, filename: &str) -> PrinterResult<PrinterQueuePrintJob>{
+    pub async fn queue_print_job(
+        &self,
+        token: &str,
+        filename: &str,
+    ) -> PrinterResult<PrinterQueuePrintJob> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
@@ -219,7 +230,7 @@ impl DBusInstance {
     }
 
     //// delete a print job in queue
-    pub async fn delete_queue_print_job(&self, token: &str, id: u64) -> PrinterResult<()>{
+    pub async fn delete_queue_print_job(&self, token: &str, id: u64) -> PrinterResult<()> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }

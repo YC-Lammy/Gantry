@@ -16,7 +16,7 @@ pub const VERSION: (u8, u8, u8) = (0, 0, 1);
 pub const API_VERSION: (u8, u8, u8) = (0, 0, 1);
 pub const DEFAULT_HTTP_PORT: u16 = 8080;
 
-lazy_static::lazy_static!{
+lazy_static::lazy_static! {
     pub static ref INSTANCES: RwLock<HashMap<String, Arc<printer::Instance>>> = RwLock::new(HashMap::new());
 }
 
@@ -86,8 +86,9 @@ pub async fn main() {
 
     // spawn instances
     for (i, (name, inst_cfg)) in config.instances.into_iter().enumerate() {
-        let inst =
-            Arc::new(printer::Instance::create(i, name.clone(), inst_cfg, gantry_path.clone()).await);
+        let inst = Arc::new(
+            printer::Instance::create(i, name.clone(), inst_cfg, gantry_path.clone()).await,
+        );
 
         // create dbus service
         let dbus_service = inst.clone().create_dbus_service();

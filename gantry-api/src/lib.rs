@@ -1,4 +1,6 @@
 
+use url::Url;
+
 use serde::{Deserialize, Serialize};
 use zvariant::Type;
 
@@ -72,12 +74,27 @@ impl<T: Type> PrinterResult<T> where T: Default{
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginParams{
+    pub password: String
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
 pub struct PrinterLogin {
     /// the temporary token
     pub token: String,
     /// the refresh token
     pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ResetPasswordParams{
+    pub new_password: String
+}
+
+#[derive(Deserialize)]
+pub struct RefreshTokenParams{
+    refresh_token: String
 }
 
 /// printer state
@@ -174,6 +191,7 @@ pub struct PrinterQueuePrintJob{
     pub id: u64
 }
 
+/// zbus proxy
 #[zbus::proxy(
     interface = "org.gantry.Printer",
     default_service = "org.gantry.ThreeD",
@@ -185,7 +203,7 @@ pub trait Printer{
     /////////////////////////////////////////////
 
     /// login to the printer
-    pub async fn login(&self, pwd: &str) -> PrinterResult<PrinterLogin>;
+    pub async fn login(&self, password: &str) -> PrinterResult<PrinterLogin>;
     /// logout from the printer
     pub async fn logout(&self, token: &str) -> PrinterResult<()>;
     /// reset password
@@ -267,4 +285,78 @@ pub trait Printer{
     pub async fn download_printer_config(&self, token: &str) -> PrinterResult<String>;
     /// upload the printer config
     pub async fn upload_printer_config(&self, token: &str, config: String) -> PrinterResult<()>;
+}
+
+#[derive(Debug)]
+pub enum PrinterRestError{
+    UrlError(url::ParseError),
+    HttpError(reqwest::Error),
+    PrinterError(PrinterError)
+}
+
+type PrinterRestResult<T> = Result<T, PrinterRestError>;
+
+/// printer REST API client
+pub struct PrinterRestClient{
+    client: reqwest::Client,
+    url: Url,
+    printer_name: String,
+    bearer: String,
+    refresh_token: String,
+}
+
+impl PrinterRestClient{
+    pub async fn new(url: &str, printer_name: &str) -> Result<Self, PrinterRestError>{
+        let client = reqwest::Client::builder()
+        //.add_root_certificate(cert)()
+        .build().unwrap();
+
+        let url = match Url::parse(url){
+            Ok(u) => u.join("printer").unwrap(),
+            Err(e) => return Err(PrinterRestError::UrlError(e))
+        };
+
+        Ok(Self { 
+            client,
+            url,
+            printer_name: printer_name.to_string(),
+            bearer: String::new() ,
+            refresh_token: String::new()
+        })
+    }
+    
+    pub fn handle_json_response<T>(&self, re: Result<reqwest::Response, reqwest::Error>) -> Result<T, PrinterRestError>{
+        todo!()
+    }
+
+    /////////////////////////////////////////////
+    ///////////      Authentication    //////////
+    /////////////////////////////////////////////
+
+    /// login to the printer
+    pub async fn login(&mut self, password: &str) -> PrinterRestResult<()>{
+        let re = self.client.post(self.url.join("login").unwrap()).query(&[("name", &self.printer_name)]).json(&LoginParams{
+            password: password.to_string()
+        })
+        .send()
+        .await;
+        
+        let tokens = self.handle_json_response::<PrinterLogin>(re)?;
+        self.bearer = tokens.token;
+        self.refresh_token = tokens.refresh_token;
+
+        return Ok(())
+    }
+    /// logout from the printer
+    pub async fn logout(&self) -> PrinterResult<()>{
+        todo!()
+    }
+    /// reset password
+    pub async fn reset_password(&self, new_password: &str) -> PrinterResult<()>{
+        todo!()
+    }
+    /// refresh token
+    pub async fn refresh_token(&self) -> PrinterResult<PrinterLogin>{
+        todo!()
+    }
 }

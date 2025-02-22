@@ -7,5 +7,5 @@ mod printer;
 use auth::Auth;
 use printer::Printer;
 
-pub use instance::Instance;
 pub use http::create_service_router;
+pub use instance::Instance;
