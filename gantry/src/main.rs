@@ -1,50 +1,67 @@
 mod config;
 mod dbus;
 mod extensions;
-mod printer;
 mod kinematics;
+mod printer;
 mod server;
 
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use clap::Parser;
 use tokio::fs::OpenOptions;
+use tokio::sync::RwLock;
 
-/// 3D printer firmware
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-pub struct Arguments {
-    /// path contains all the configs and packages
-    #[arg(long, short, default_value = "~/.gantry")]
-    pub gantry_path: PathBuf,
-    /// port of http server
-    #[arg(long, short, default_value = "3000")]
-    pub port: usize
+pub const VERSION: (u8, u8, u8) = (0, 0, 1);
+pub const API_VERSION: (u8, u8, u8) = (0, 0, 1);
+pub const DEFAULT_HTTP_PORT: u16 = 8080;
+
+lazy_static::lazy_static!{
+    pub static ref INSTANCES: RwLock<HashMap<String, Arc<printer::Instance>>> = RwLock::new(HashMap::new());
 }
 
 #[tokio::main]
 pub async fn main() {
     // parse command line arguments
-    let args = Arguments::parse();
+    let cli_args = clap::Command::new("Gantry")
+        .about("3D printer firmware")
+        .version("v0.0.1")
+        .arg(clap::arg!(-g --gantry_path <PATH> "gantry path, default $Home/.gantry"))
+        .arg(clap::arg!(-p --port <PORT> "port for http server, default is port 80"))
+        .get_matches();
 
-    // create configuration dir if not exist
-    if args.gantry_path.as_path() == Path::new("~/.gantry") {
-        // check if the default gantry path exist
-        if !args.gantry_path.exists() {
-            let _ = std::fs::create_dir("~/.gantry");
-        }
-    }
+    let port = cli_args
+        .get_one::<u16>("port")
+        .cloned()
+        .unwrap_or(DEFAULT_HTTP_PORT);
+    let gantry_path = cli_args
+        .get_one::<PathBuf>("gantry_path")
+        .cloned()
+        .unwrap_or({
+            // get home directory
+            let g = dirs::home_dir()
+                .expect("home directory not found")
+                .join(".gantry");
+            // create directory if not exist
+            if !g.exists() {
+                std::fs::create_dir(&g).expect("failed to create directory .gantry");
+                std::fs::create_dir(g.join("themes")).expect("failed to create directry themes");
+            }
+            g
+        })
+        .canonicalize()
+        .expect("path error");
 
     // open the config file in write mode
     let config_file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(args.gantry_path.join("gantry.toml"))
+        .open(gantry_path.join("Gantry.toml"))
         .await
         .expect(&format!(
             "cannot open file '{}'",
-            args.gantry_path.join("gantry.toml").display()
+            gantry_path.join("Gantry.toml").display()
         ));
 
     // parse config file
@@ -55,21 +72,22 @@ pub async fn main() {
         .expect("failed to connect dbus")
         .name("org.gantry.ThreeD")
         .expect("gantry is already running")
-        .serve_at("/org/gantry/server", dbus::Service::new())
-        .unwrap()
         .build()
         .await
         .expect("failed to connect dbus");
 
+    // get the dbus object server
     let obj_server = dbus.object_server();
-
-    // construct axum server
-    let mut app = axum::Router::<()>::new()
-    .nest("server", server::create_service_router());
+    // serve server service
+    obj_server
+        .at("/org/gantry/server", dbus::Service::new())
+        .await
+        .unwrap();
 
     // spawn instances
     for (i, (name, inst_cfg)) in config.instances.into_iter().enumerate() {
-        let inst = Arc::new(printer::Instance::create(i, name, inst_cfg, args.gantry_path.clone()));
+        let inst =
+            Arc::new(printer::Instance::create(i, name.clone(), inst_cfg, gantry_path.clone()).await);
 
         // create dbus service
         let dbus_service = inst.clone().create_dbus_service();
@@ -79,15 +97,43 @@ pub async fn main() {
             .at(format!("/org/gantry/instance{}", i), dbus_service)
             .await;
 
-        // create http service
-        let printer_router = inst.clone().create_axum_router();
-
-        // register rest api
-        app = app.nest(&format!("instance{}", i), printer_router);
+        // add instance to global
+        INSTANCES.write().await.insert(name, inst);
     }
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    // construct axum server
+    let app = axum::Router::<()>::new()
+        .route(
+            "/",
+            axum::routing::get(|| async {
+                axum::response::Html(include_str!("../../gantry-web.html"))
+            }),
+        )
+        .route(
+            "/gantry-web.css",
+            axum::routing::get(|| async {
+                (
+                    [("content-type", "text/css")],
+                    include_str!("../../gantry-web.css"),
+                )
+            }),
+        )
+        .route(
+            "/gantry-web.js",
+            axum::routing::get(|| async {
+                (
+                    [("content-type", "text/javascript")],
+                    include_str!("../../gantry-web.js"),
+                )
+            }),
+        )
+        .nest("/server", server::create_service_router())
+        .nest("/printer", printer::create_service_router());
+
+    // run our app with hyper, listening globally
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .expect("failed to bind TCP port");
 
     axum::serve(listener, app).await.unwrap();
 }

@@ -20,7 +20,7 @@ impl Auth {
         todo!()
     }
 
-    pub fn reset_password(&self, password: &str) -> bool {
+    pub fn reset_password(&self, token: &str, password: &str) -> bool {
         todo!()
     }
 

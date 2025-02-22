@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use zvariant::Type;
@@ -8,6 +7,8 @@ use zvariant::Type;
 pub enum PrinterErrorCode {
     #[default]
     None,
+    /// can be any error
+    GenericError,
     /// printer is in error state, ignored
     ErrorState,
     /// printer has been shutdown, ignored
@@ -24,10 +25,14 @@ pub enum PrinterErrorCode {
     AuthTokenTimeout,
     /// refresh token invalid
     RefreshTokenInvalid,
+    /// error parsing config
+    PrinterConfigParseError,
     /// error parsing gcode
     GcodeParseError,
     /// print job already running
     PrintJobRunning,
+    /// no print job running
+    PrintJobNotRunning,
     /// file not found
     FileNotFound,
     /// file system has full capacity
@@ -52,12 +57,12 @@ impl PrinterError {
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
 pub struct PrinterResult<T: Type>{
     pub error: PrinterError,
-    pub result: T
+    pub result: Option<T>
 }
 
 impl<T: Type> PrinterResult<T>{
     pub const fn ok(result: T) -> Self{
-        Self { error: PrinterError::NONE, result }
+        Self { error: PrinterError::NONE, result: Some(result) }
     }
 }
 
@@ -164,6 +169,11 @@ pub struct PrinterGcodeFileMetadata{
     pub filename: String,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Type)]
+pub struct PrinterQueuePrintJob{
+    pub id: u64
+}
+
 #[zbus::proxy(
     interface = "org.gantry.Printer",
     default_service = "org.gantry.ThreeD",
@@ -195,14 +205,23 @@ pub trait Printer{
     pub async fn restart(&self, token: &str) -> PrinterResult<()>;
     /// list objects loaded
     pub async fn list_objects(&self, token: &str) -> PrinterResult<HashMap<String, String>>;
+    /// query endstop status
+    pub async fn query_endstops(&self, token: &str) -> PrinterResult<PrinterEndstopStatus>;
+
+    /////////////////////////////////////////////
+    ///////////       Extensions      ///////////
+    /////////////////////////////////////////////
+    
     /// list extensions loaded
     pub async fn list_extensions(&self, token: &str) -> PrinterResult<HashMap<String, PrinterExtension>>;
     /// install an extension
     pub async fn install_extension(&self, token: &str, repo: String) -> PrinterResult<()>;
     /// remove an extension
     pub async fn remove_extension(&self, token: &str, name: String) -> PrinterResult<()>;
-    /// query endstop status
-    pub async fn query_endstops(&self, token: &str) -> PrinterResult<PrinterEndstopStatus>;
+    /// download extension config
+    pub async fn download_extension_config(&self, token: &str, name: &str) -> PrinterResult<String>;
+    /// upload extension config
+    pub async fn upload_extension_config(&self, token: &str, name: &str,  config: String) -> PrinterResult<()>;
 
     /////////////////////////////////////////////
     ///////////       Gcode API       ///////////
@@ -225,6 +244,10 @@ pub trait Printer{
     pub async fn resume_print_job(&self, token: &str) -> PrinterResult<()>;
     /// cancel the print job
     pub async fn cancel_print_job(&self, token: &str) -> PrinterResult<()>;
+    /// queue print job to run after current print job is finished
+    pub async fn queue_print_job(&self, token: &str, filename: &str) -> PrinterResult<PrinterQueuePrintJob>;
+    //// delete a print job in queue
+    pub async fn delete_queue_print_job(&self, token: &str, id: u64) -> PrinterResult<()>;
 
     /////////////////////////////////////////////
     ///////////      Gcode files      ///////////
@@ -239,5 +262,9 @@ pub trait Printer{
     /// upload a gcode file
     pub async fn upload_file(&self, token: &str, filename: &str, filedata: String) -> PrinterResult<()>;
     /// download a gcode file
-    pub async fn download_file(&self, filename: &str) -> PrinterResult<String>;
+    pub async fn download_file(&self, token: &str, filename: &str) -> PrinterResult<String>;
+    /// download the printer config
+    pub async fn download_printer_config(&self, token: &str) -> PrinterResult<String>;
+    /// upload the printer config
+    pub async fn upload_printer_config(&self, token: &str, config: String) -> PrinterResult<()>;
 }

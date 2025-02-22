@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 zbus = {version = "5.5", default-features = false, features = ["tokio"]}
-zvariant = "5.4"
+zvariant = {version = "5.4", features = ["option-as-array"]}
 serde = {version = "1.0", features = ["derive"]}

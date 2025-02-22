@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use tokio::fs::File;
 
-pub struct PrinterConfig {}
-
 pub struct GantryConfig {
     /// printer instances to boot up
     pub instances: HashMap<String, InstanceConfig>,
@@ -18,6 +16,16 @@ pub struct InstanceConfig {
 
 impl GantryConfig {
     pub async fn parse(file: File) -> Result<Self, ()> {
-        todo!()
+        return Ok(GantryConfig {
+            instances: HashMap::new(),
+        });
+    }
+}
+
+pub struct PrinterConfig {}
+
+impl PrinterConfig {
+    pub async fn parse(file: File) -> Result<Self, String> {
+        return Ok(PrinterConfig {});
     }
 }
