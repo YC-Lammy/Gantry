@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Gantry</title>
+        <link rel="stylesheet" href="gantry-web.css">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="dist/gantry-web.bundle.js" defer></script>
+    </head>
+    <body>
+        <div class="header">
+            <div class="header-icon" >
+            </div>
+            
+            <h2 class="header-title">Gantry</h2>
+            <div class="header-padding"></div>
+            <button class="emergency-stop-button" onclick="Printer.emergency_stop()">EMERGENCY STOP</button>
+        </div>
+
+        <template>
+            <div id="PrinterSelectDialog">
+                <button id="PrinterSelectDialogCloseButton">x</button>
+                <div id="PrinterSelectDialogGrid">
+                    
+                </div>
+            </div>
+        </template>
+        
+        <template id="PrinterSelectDialogOptionTemplate">
+            <div class="PrinterSelectDialogOption">
+                <button class="PrinterSelectDialogText"></button>
+            </div>
+        </template>       
+
+        <div class="main-frame">
+            <div class="tab">
+                <button class="tablinks active" onclick="Printer.open_tab(event, 'Dashboard')">DASHBOARD</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Webcams')">WEBCAMS</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Console')">CONSOLE</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Heightmap')">HEIGHTMAP</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Files')">G-CODE FILES</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Viewer')">G-CODE VIEWER</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'History')">HISTORY</button>
+                <button class="tablinks" onclick="Printer.open_tab(event, 'Machine')">MACHINE</button>
+            </div>
+
+            <div id="Dashboard" class="tabcontent active">
+                <div class="dashboard-container">
+                    <div class="dashboard-left">
+                        <h3>Dashboard</h3>
+                        <p>This is the dashboard.</p>
+                    </div>
+                    <div class="dashboard-centre"></div>
+                    <div class="dashboard-right"></div>
+                </div>
+                
+            </div>
+
+            <template id="dashboard-temperatures-template">
+                <div id="dashboard-temperatures">
+                    <div class="dashboard-temperatures-header">
+                        <h2>Temperatures</h2>
+                    </div>
+                    <div class="dashboard-temperatures-grid">
+            
+                    </div>
+                    <div>
+                        <canvas class="dashboard-temperatures-chart"></canvas>
+                    </div>
+                </div>
+            </template> 
+
+            <div id="Webcams" class="tabcontent">
+                <h3>Webcams</h3>
+                <p>This is the webcams.</p> 
+            </div>
+
+            <div id="Console" class="tabcontent">
+                <h3>Console</h3>
+                <p>This is the console.</p>
+            </div>
+
+            <div id="Heightmap" class="tabcontent">
+                <h3>Heightmap</h3>
+                <p>This is the console.</p>
+            </div>
+
+            <div id="Files" class="tabcontent">
+                <h3>Files</h3>
+                <p>This is the console.</p>
+            </div>
+
+            <div id="Viewer" class="tabcontent">
+                <canvas id="GcodeViewerCanvas"></canvas>
+            </div>
+
+            <div id="History" class="tabcontent">
+                <h3>History</h3>
+                <p>This is the console.</p>
+            </div>
+
+            <div id="Machine" class="tabcontent">
+                <h3>Machine</h3>
+                <p>This is the console.</p>
+            </div>
+        </div>
+    </body>
+</html> 

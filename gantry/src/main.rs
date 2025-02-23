@@ -28,6 +28,8 @@ pub async fn main() {
         .version("v0.0.1")
         .arg(clap::arg!(-g --gantry_path <PATH> "gantry path, default $Home/.gantry"))
         .arg(clap::arg!(-p --port <PORT> "port for http server, default is port 80"))
+        .arg(clap::arg!(--tls_cert <CERT> "path to tls cert pem file"))
+        .arg(clap::arg!(--tls_key <KEY> "path to tls private key pem file"))
         .get_matches();
 
     let port = cli_args
@@ -107,7 +109,13 @@ pub async fn main() {
         .route(
             "/",
             axum::routing::get(|| async {
-                axum::response::Html(include_str!("../../gantry-web.html"))
+                axum::response::Html(include_str!("../../gantry-webui/dist/gantry-web.html"))
+            }),
+        )
+        .route(
+            "/gantry-web.html", 
+            axum::routing::get(|| async {
+                axum::response::Html(include_str!("../../gantry-webui/dist/gantry-web.html"))
             }),
         )
         .route(
@@ -115,7 +123,7 @@ pub async fn main() {
             axum::routing::get(|| async {
                 (
                     [("content-type", "text/css")],
-                    include_str!("../../gantry-web.css"),
+                    include_str!("../../gantry-webui/dist/gantry-web.css"),
                 )
             }),
         )
@@ -124,7 +132,7 @@ pub async fn main() {
             axum::routing::get(|| async {
                 (
                     [("content-type", "text/javascript")],
-                    include_str!("../../gantry-web.js"),
+                    include_str!("../../gantry-webui/dist/gantry-web.bundle.js"),
                 )
             }),
         )

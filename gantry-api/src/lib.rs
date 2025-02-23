@@ -1,9 +1,7 @@
-
 use url::Url;
 
 use serde::{Deserialize, Serialize};
 use zvariant::Type;
-
 
 #[derive(Debug, Default, Serialize, Deserialize, Type, Clone, Copy)]
 pub enum PrinterErrorCode {
@@ -38,7 +36,7 @@ pub enum PrinterErrorCode {
     /// file not found
     FileNotFound,
     /// file system has full capacity
-    FileCapacityFull
+    FileCapacityFull,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type, Clone)]
@@ -57,26 +55,35 @@ impl PrinterError {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterResult<T: Type>{
+pub struct PrinterResult<T: Type> {
     pub error: PrinterError,
-    pub result: Option<T>
+    pub result: Option<T>,
 }
 
-impl<T: Type> PrinterResult<T>{
-    pub const fn ok(result: T) -> Self{
-        Self { error: PrinterError::NONE, result: Some(result) }
+impl<T: Type> PrinterResult<T> {
+    pub const fn ok(result: T) -> Self {
+        Self {
+            error: PrinterError::NONE,
+            result: Some(result),
+        }
     }
 }
 
-impl<T: Type> PrinterResult<T> where T: Default{
-    pub fn err(error: PrinterError) -> Self{
-        Self { error, result: Default::default() }
+impl<T: Type> PrinterResult<T>
+where
+    T: Default,
+{
+    pub fn err(error: PrinterError) -> Self {
+        Self {
+            error,
+            result: Default::default(),
+        }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LoginParams{
-    pub password: String
+pub struct LoginParams {
+    pub password: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
@@ -88,18 +95,18 @@ pub struct PrinterLogin {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ResetPasswordParams{
-    pub new_password: String
+pub struct ResetPasswordParams {
+    pub new_password: String,
 }
 
-#[derive(Deserialize)]
-pub struct RefreshTokenParams{
-    refresh_token: String
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshTokenParams {
+    pub refresh_token: String,
 }
 
 /// printer state
 #[derive(Debug, Default, Serialize, Deserialize, Type, Clone, Copy)]
-pub enum PrinterState{
+pub enum PrinterState {
     /// printer is up and running
     Ready,
     /// printer is at startup phase
@@ -113,7 +120,7 @@ pub enum PrinterState{
 
 /// generic printer information
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterInfo{
+pub struct PrinterInfo {
     /// printer state
     pub state: PrinterState,
     /// only used when in error state
@@ -125,21 +132,57 @@ pub struct PrinterInfo{
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterExtension{
+pub struct PrinterTemperatureInfo{
+    pub name: String,
+    pub state: String,
+    pub temperature: f64
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Type)]
+pub struct StartPrintJobResult{
+    pub job_id: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Type)]
+pub struct PrintJobStatus{
+    /// filename of print job, empty if no print job
+    pub filename: String,
+    /// path of thumbnail image
+    pub thumbnail_path: String,
+    /// state
+    pub state: String,
+    /// current speed in mm/s
+    pub speed: f64,
+    /// current flow in mm/s
+    pub flow: f64,
+    /// filament used in mm
+    pub filament: f64,
+    /// estimated duration in seconds
+    pub estimate_duration: u64,
+    /// time elapsed in seconds
+    pub elapsed: u64,
+    /// current layers
+    pub layer: u64,
+    /// total number of layers
+    pub total_layers: u64,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Type)]
+pub struct PrinterExtension {
     pub name: String,
     pub repo: String,
     pub version: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterEndstopStatus{
+pub struct PrinterEndstopStatus {
     pub x_triggered: bool,
     pub y_triggered: bool,
-    pub z_triggered: bool
+    pub z_triggered: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterGcodeFile{
+pub struct PrinterGcodeFile {
     pub path: String,
     pub modified: u64,
     pub size: u64,
@@ -147,7 +190,7 @@ pub struct PrinterGcodeFile{
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterGcodeThumbnail{
+pub struct PrinterGcodeThumbnail {
     pub width: u32,
     pub height: u32,
     pub size: u32,
@@ -155,7 +198,7 @@ pub struct PrinterGcodeThumbnail{
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterGcodeFileMetadata{
+pub struct PrinterGcodeFileMetadata {
     pub size: u64,
     pub modified: u64,
     pub uuid: String,
@@ -187,8 +230,16 @@ pub struct PrinterGcodeFileMetadata{
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Type)]
-pub struct PrinterQueuePrintJob{
-    pub id: u64
+pub struct PrinterQueuePrintJob {
+    pub id: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Type)]
+pub struct JobQueuePrintJob {
+    pub id: String,
+    pub filename: String,
+    pub estimated_time: String,
+    pub thumbnail_path: String,
 }
 
 /// zbus proxy
@@ -197,7 +248,7 @@ pub struct PrinterQueuePrintJob{
     default_service = "org.gantry.ThreeD",
     default_path = "/org/gantry/instance0"
 )]
-pub trait Printer{
+pub trait Printer {
     /////////////////////////////////////////////
     ///////////      Authentication    //////////
     /////////////////////////////////////////////
@@ -214,9 +265,10 @@ pub trait Printer{
     /////////////////////////////////////////////
     ///////////         Status        ///////////
     /////////////////////////////////////////////
-    
+
     /// get printer info
     pub async fn get_info(&self, token: &str) -> PrinterResult<PrinterInfo>;
+    pub async fn get_temperatures(&self, token: &str) -> PrinterResult<Vec<PrinterTemperatureInfo>>;
     /// emergency stop
     pub async fn emergency_stop(&self, token: &str) -> PrinterResult<()>;
     /// restart gantry
@@ -229,22 +281,31 @@ pub trait Printer{
     /////////////////////////////////////////////
     ///////////       Extensions      ///////////
     /////////////////////////////////////////////
-    
+
     /// list extensions loaded
-    pub async fn list_extensions(&self, token: &str) -> PrinterResult<HashMap<String, PrinterExtension>>;
+    pub async fn list_extensions(
+        &self,
+        token: &str,
+    ) -> PrinterResult<HashMap<String, PrinterExtension>>;
     /// install an extension
     pub async fn install_extension(&self, token: &str, repo: String) -> PrinterResult<()>;
     /// remove an extension
     pub async fn remove_extension(&self, token: &str, name: String) -> PrinterResult<()>;
     /// download extension config
-    pub async fn download_extension_config(&self, token: &str, name: &str) -> PrinterResult<String>;
+    pub async fn download_extension_config(&self, token: &str, name: &str)
+    -> PrinterResult<String>;
     /// upload extension config
-    pub async fn upload_extension_config(&self, token: &str, name: &str,  config: String) -> PrinterResult<()>;
+    pub async fn upload_extension_config(
+        &self,
+        token: &str,
+        name: &str,
+        config: String,
+    ) -> PrinterResult<()>;
 
     /////////////////////////////////////////////
     ///////////       Gcode API       ///////////
     /////////////////////////////////////////////
-    
+
     /// execute a gcode script
     pub async fn run_gcode(&self, token: &str, script: String) -> PrinterResult<()>;
     /// Retrieves a list of registered GCode Command Descriptions.
@@ -253,32 +314,50 @@ pub trait Printer{
     /////////////////////////////////////////////
     ///////////       Print job       ///////////
     /////////////////////////////////////////////
-    
+
     /// start a print job
-    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<()>;
+    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<StartPrintJobResult>;
     /// pause the print job
     pub async fn pause_print_job(&self, token: &str) -> PrinterResult<()>;
     /// resume the print job
     pub async fn resume_print_job(&self, token: &str) -> PrinterResult<()>;
     /// cancel the print job
     pub async fn cancel_print_job(&self, token: &str) -> PrinterResult<()>;
+    /// get print job status
+    pub async fn get_print_job_status(&self, token: &str) -> PrinterResult<>;
+
     /// queue print job to run after current print job is finished
-    pub async fn queue_print_job(&self, token: &str, filename: &str) -> PrinterResult<PrinterQueuePrintJob>;
+    pub async fn queue_print_job(
+        &self,
+        token: &str,
+        filename: &str,
+    ) -> PrinterResult<PrinterQueuePrintJob>;
     //// delete a print job in queue
-    pub async fn delete_queue_print_job(&self, token: &str, id: u64) -> PrinterResult<()>;
+    pub async fn delete_queue_print_job(&self, token: &str, id: &str) -> PrinterResult<()>;
+    /// pause the job queue, next job will not start when current job is finished
+    pub async fn pause_job_queue(&self, token: &str) -> PrinterResult<()>;
+    /// resume the job queue
+    pub async fn resume_job_queue(&self, token: &str) -> PrinterResult<()>;
+    /// get a list of jobs in job queue
+    pub async fn list_job_queue(&self, token: &str) -> PrinterResult<Vec<JobQueuePrintJob>>;
 
     /////////////////////////////////////////////
     ///////////      Gcode files      ///////////
     /////////////////////////////////////////////
-    
+
     /// list avaliable gcode files
     pub async fn list_files(&self, token: &str) -> PrinterResult<Vec<PrinterGcodeFile>>;
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<()>;
+    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<PrinterGcodeFileMetadata>;
     /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
     pub async fn scan_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<()>;
     /// upload a gcode file
-    pub async fn upload_file(&self, token: &str, filename: &str, filedata: String) -> PrinterResult<()>;
+    pub async fn upload_file(
+        &self,
+        token: &str,
+        filename: &str,
+        filedata: String,
+    ) -> PrinterResult<()>;
     /// download a gcode file
     pub async fn download_file(&self, token: &str, filename: &str) -> PrinterResult<String>;
     /// download the printer config
@@ -288,16 +367,16 @@ pub trait Printer{
 }
 
 #[derive(Debug)]
-pub enum PrinterRestError{
+pub enum PrinterRestError {
     UrlError(url::ParseError),
     HttpError(reqwest::Error),
-    PrinterError(PrinterError)
+    PrinterError(PrinterError),
 }
 
 type PrinterRestResult<T> = Result<T, PrinterRestError>;
 
 /// printer REST API client
-pub struct PrinterRestClient{
+pub struct PrinterRestClient {
     client: reqwest::Client,
     url: Url,
     printer_name: String,
@@ -305,27 +384,30 @@ pub struct PrinterRestClient{
     refresh_token: String,
 }
 
-impl PrinterRestClient{
-    pub async fn new(url: &str, printer_name: &str) -> Result<Self, PrinterRestError>{
-        let client = reqwest::Client::builder()
-        //.add_root_certificate(cert)()
-        .build().unwrap();
+impl PrinterRestClient {
+    pub async fn new(url: &str, printer_name: &str) -> Result<Self, PrinterRestError> {
+        // create client
+        let client = reqwest::Client::new();
 
-        let url = match Url::parse(url){
+        // parse url
+        let url = match Url::parse(url) {
             Ok(u) => u.join("printer").unwrap(),
-            Err(e) => return Err(PrinterRestError::UrlError(e))
+            Err(e) => return Err(PrinterRestError::UrlError(e)),
         };
 
-        Ok(Self { 
+        Ok(Self {
             client,
             url,
             printer_name: printer_name.to_string(),
-            bearer: String::new() ,
-            refresh_token: String::new()
+            bearer: String::new(),
+            refresh_token: String::new(),
         })
     }
-    
-    pub fn handle_json_response<T>(&self, re: Result<reqwest::Response, reqwest::Error>) -> Result<T, PrinterRestError>{
+
+    pub fn handle_json_response<T>(
+        &self,
+        re: Result<reqwest::Response, reqwest::Error>,
+    ) -> Result<T, PrinterRestError> {
         todo!()
     }
 
@@ -334,29 +416,60 @@ impl PrinterRestClient{
     /////////////////////////////////////////////
 
     /// login to the printer
-    pub async fn login(&mut self, password: &str) -> PrinterRestResult<()>{
-        let re = self.client.post(self.url.join("login").unwrap()).query(&[("name", &self.printer_name)]).json(&LoginParams{
-            password: password.to_string()
-        })
-        .send()
-        .await;
-        
+    pub async fn login(&mut self, password: &str) -> PrinterRestResult<()> {
+        let re = self
+            .client
+            .post(self.url.join("login").unwrap())
+            .query(&[("name", &self.printer_name)])
+            .json(&LoginParams {
+                password: password.to_string(),
+            })
+            .send()
+            .await;
+
         let tokens = self.handle_json_response::<PrinterLogin>(re)?;
         self.bearer = tokens.token;
         self.refresh_token = tokens.refresh_token;
 
-        return Ok(())
+        return Ok(());
     }
     /// logout from the printer
-    pub async fn logout(&self) -> PrinterResult<()>{
-        todo!()
+    pub async fn logout(&self) -> PrinterRestResult<()> {
+        let re = self.client
+        .post(self.url.join("logout").unwrap())
+        .query(&[("name", &self.printer_name)])
+        .bearer_auth(&self.bearer)
+        .send()
+        .await;
+
+        return self.handle_json_response(re)
     }
     /// reset password
-    pub async fn reset_password(&self, new_password: &str) -> PrinterResult<()>{
-        todo!()
+    pub async fn reset_password(&self, new_password: &str) -> PrinterRestResult<()> {
+        let re = self.client
+        .post(self.url.join("reset_password").unwrap())
+        .query(&[("name", &self.printer_name)])
+        .bearer_auth(&self.bearer)
+        .json(&ResetPasswordParams{
+            new_password: new_password.into()
+        })
+        .send()
+        .await;
+
+        return self.handle_json_response(re)
     }
     /// refresh token
-    pub async fn refresh_token(&self) -> PrinterResult<PrinterLogin>{
-        todo!()
+    pub async fn refresh_token(&self) -> PrinterRestResult<PrinterLogin> {
+        let re = self.client
+        .post(self.url.join("refresh_token").unwrap())
+        .query(&[("name", &self.printer_name)])
+        .bearer_auth(&self.bearer)
+        .json(&RefreshTokenParams{
+            refresh_token: self.refresh_token.clone()
+        })
+        .send()
+        .await;
+
+        return self.handle_json_response(re)
     }
 }

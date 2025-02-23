@@ -27,6 +27,7 @@ pub fn create_service_router() -> axum::Router {
         .route("/logout", post(logout))
         .route("/reset_password", post(reset_password))
         .route("/info", get(get_info))
+        .route("/temperatures", get(get_temperatures))
         .route("/emergency_stop", post(emergency_stop))
         .route("/restart", post(restart))
         .route("/list_objects", get(list_objects))
@@ -36,6 +37,18 @@ pub fn create_service_router() -> axum::Router {
         .route("/remove_extension", post(remove_extension))
         .route("/download_extension_config", get(download_extension_config))
         .route("/upload_extension_config", post(upload_extension_config))
+        .route("/run_gcode", post(run_gcode))
+        .route("/gcode_help", get(get_gcode_help))
+        .route("/start_print_job", post(start_print_job))
+        .route("/pause_print_job", post(pause_print_job))
+        .route("/resume_print_job", post(resume_print_job))
+        .route("/cancel_print_job", post(cancel_print_job))
+        .route("/print_job_status", get(get_print_job_status))
+        .route("/queue_print_job", post(queue_print_job))
+        .route("/delete_queue_print_job", post(delete_queue_print_job))
+        .route("/pause_job_queue", post(pause_job_queue))
+        .route("/resume_job_queue", post(resume_job_queue))
+        .route("/list_job_queue", get(list_job_queue))
         .layer(axum::middleware::from_fn(instance_authenticator));
 
     without_bearer.merge(with_bearer)
@@ -98,13 +111,13 @@ async fn instance_extracter(
 ///////////      Authentication    //////////
 /////////////////////////////////////////////
 #[derive(Deserialize)]
-pub struct Login {
-    password: String,
+pub struct LoginParams {
+    pub password: String,
 }
 /// login to the printer
 pub async fn login(
     Extension(instance): Extension<Arc<Instance>>,
-    Json(login): Json<Login>,
+    Json(login): Json<LoginParams>,
 ) -> Json<PrinterResult<PrinterLogin>> {
     Json(instance.login(&login.password).await)
 }
@@ -116,14 +129,14 @@ pub async fn logout(
     Json(instance.logout(&bearer_token).await)
 }
 #[derive(Deserialize)]
-pub struct ResetPassword {
-    new_password: String,
+pub struct ResetPasswordParams {
+    pub new_password: String,
 }
 /// reset password
 pub async fn reset_password(
     Extension(instance): Extension<Arc<Instance>>,
     AuthBearer(bearer_token): AuthBearer,
-    Json(reset): Json<ResetPassword>,
+    Json(reset): Json<ResetPasswordParams>,
 ) -> Json<PrinterResult<()>> {
     Json(
         instance
@@ -132,13 +145,13 @@ pub async fn reset_password(
     )
 }
 #[derive(Deserialize)]
-pub struct RefreshToken {
-    refresh_token: String,
+pub struct RefreshTokenParams {
+    pub refresh_token: String,
 }
 /// refresh token
 pub async fn refresh_token(
     Extension(instance): Extension<Arc<Instance>>,
-    Json(refresh): Json<RefreshToken>,
+    Json(refresh): Json<RefreshTokenParams>,
 ) -> Json<PrinterResult<PrinterLogin>> {
     Json(instance.refresh_token(&refresh.refresh_token).await)
 }
@@ -152,6 +165,12 @@ pub async fn get_info(
     Extension(instance): Extension<Arc<Instance>>,
 ) -> Json<PrinterResult<PrinterInfo>> {
     Json(instance.get_info().await)
+}
+/// get printer temperatures
+pub async fn get_temperatures(
+    Extension(instance): Extension<Arc<Instance>>,
+) -> Json<PrinterResult<Vec<PrinterTemperatureInfo>>> {
+    Json(instance.get_temperatures().await)
 }
 /// emergency stop
 pub async fn emergency_stop(
@@ -240,13 +259,17 @@ pub async fn upload_extension_config(
 /////////////////////////////////////////////
 ///////////       Gcode API       ///////////
 /////////////////////////////////////////////
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RunGcodeParams {
+    pub script: String,
+}
 
 /// execute a gcode script
 pub async fn run_gcode(
     Extension(instance): Extension<Arc<Instance>>,
-    script: String,
+    Json(params): Json<RunGcodeParams>,
 ) -> Json<PrinterResult<()>> {
-    Json(instance.run_gcode(script).await)
+    Json(instance.run_gcode(params.script).await)
 }
 /// Retrieves a list of registered GCode Command Descriptions.
 pub async fn get_gcode_help(
@@ -258,13 +281,16 @@ pub async fn get_gcode_help(
 /////////////////////////////////////////////
 ///////////       Print job       ///////////
 /////////////////////////////////////////////
-
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StartPrintJobParams {
+    pub filename: String,
+}
 /// start a print job
 pub async fn start_print_job(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
-) -> Json<PrinterResult<()>> {
-    Json(instance.start_print_job(filename).await)
+    Json(params): Json<StartPrintJobParams>,
+) -> Json<PrinterResult<StartPrintJobResult>> {
+    Json(instance.start_print_job(&params.filename).await)
 }
 /// pause the print job
 pub async fn pause_print_job(
@@ -284,19 +310,54 @@ pub async fn cancel_print_job(
 ) -> Json<PrinterResult<()>> {
     Json(instance.cancel_print_job().await)
 }
+/// get print job status
+pub async fn get_print_job_status(
+    Extension(instance): Extension<Arc<Instance>>,
+) -> Json<PrinterResult<PrintJobStatus>>{
+    Json(instance.get_print_job_status().await)
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueuePrintJobParams {
+    pub filename: String,
+}
 /// queue print job to run after current print job is finished
 pub async fn queue_print_job(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
+    Json(params): Json<QueuePrintJobParams>,
 ) -> Json<PrinterResult<PrinterQueuePrintJob>> {
-    Json(instance.queue_print_job(filename).await)
+    Json(instance.queue_print_job(&params.filename).await)
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleteQueuePrintJobParams {
+    pub id: String,
 }
 //// delete a print job in queue
 pub async fn delete_queue_print_job(
     Extension(instance): Extension<Arc<Instance>>,
-    id: u64,
+    Json(params): Json<DeleteQueuePrintJobParams>,
 ) -> Json<PrinterResult<()>> {
-    Json(instance.delete_queue_print_job(id).await)
+    Json(instance.delete_queue_print_job(&params.id).await)
+}
+
+/// pause the job queue, next job will not start when current job is finished
+pub async fn pause_job_queue(
+    Extension(instance): Extension<Arc<Instance>>,
+) -> Json<PrinterResult<()>> {
+    Json(instance.pause_job_queue().await)
+}
+
+/// resume the job queue
+pub async fn resume_job_queue(
+    Extension(instance): Extension<Arc<Instance>>,
+) -> Json<PrinterResult<()>> {
+    Json(instance.resume_job_queue().await)
+}
+
+/// get a list of jobs in job queue
+pub async fn list_job_queue(
+    Extension(instance): Extension<Arc<Instance>>,
+) -> Json<PrinterResult<Vec<JobQueuePrintJob>>> {
+    Json(instance.list_job_queue().await)
 }
 
 /////////////////////////////////////////////
@@ -313,7 +374,7 @@ pub async fn list_files(
 pub async fn get_file_metadata(
     Extension(instance): Extension<Arc<Instance>>,
     filename: &str,
-) -> Json<PrinterResult<()>> {
+) -> Json<PrinterResult<PrinterGcodeFileMetadata>> {
     Json(instance.get_file_metadata(filename).await)
 }
 /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.

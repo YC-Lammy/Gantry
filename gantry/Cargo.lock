@@ -532,6 +532,7 @@ dependencies = [
  "gantry-api",
  "lazy_static",
  "serde",
+ "serde_json",
  "tokio",
  "tower",
  "zbus",

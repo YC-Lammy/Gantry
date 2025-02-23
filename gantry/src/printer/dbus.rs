@@ -49,6 +49,16 @@ impl DBusInstance {
         return self.inner.get_info().await;
     }
 
+    /// get printer temperatures
+    pub async fn get_temperatures(&self, token: &str) -> PrinterResult<Vec<PrinterTemperatureInfo>> {
+        // check for token only
+        if let Err(err) = self.inner.validate_token(token) {
+            return PrinterResult::err(err);
+        }
+
+        return self.inner.get_temperatures().await
+    }
+
     /// emergency stop
     pub async fn emergency_stop(&self, token: &str) -> PrinterResult<()> {
         // check for token only
@@ -182,7 +192,7 @@ impl DBusInstance {
     /////////////////////////////////////////////
 
     /// start a print job
-    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<()> {
+    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<StartPrintJobResult> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
@@ -211,9 +221,16 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        self.inner.cancel_print_job().await;
+        return self.inner.cancel_print_job().await;
+    }
 
-        return PrinterResult::ok(());
+    /// get the print job status
+    pub async fn get_print_job_status(&self, token: &str) -> PrinterResult<PrintJobStatus> {
+        if let Some(err) = self.inner.validate_token_state(token).await {
+            return PrinterResult::err(err);
+        }
+
+        return self.inner.get_print_job_status().await
     }
 
     /// queue print job to run after current print job is finished
@@ -230,12 +247,37 @@ impl DBusInstance {
     }
 
     //// delete a print job in queue
-    pub async fn delete_queue_print_job(&self, token: &str, id: u64) -> PrinterResult<()> {
+    pub async fn delete_queue_print_job(&self, token: &str, id: &str) -> PrinterResult<()> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
 
         self.inner.delete_queue_print_job(id).await
+    }
+
+    pub async fn pause_job_queue(&self, token: &str) -> PrinterResult<()> {
+        if let Some(err) = self.inner.validate_token_state(token).await {
+            return PrinterResult::err(err);
+        }
+
+        self.inner.pause_job_queue().await
+    }
+
+    pub async fn resume_job_queue(&self, token: &str) -> PrinterResult<()> {
+        if let Some(err) = self.inner.validate_token_state(token).await {
+            return PrinterResult::err(err);
+        }
+
+        self.inner.resume_job_queue().await
+    }
+
+    /// get a list of jobs in job queue
+    pub async fn list_job_queue(&self, token: &str) -> PrinterResult<Vec<JobQueuePrintJob>> {
+        if let Some(err) = self.inner.validate_token_state(token).await {
+            return PrinterResult::err(err);
+        }
+
+        self.inner.list_job_queue().await
     }
 
     /////////////////////////////////////////////
@@ -251,7 +293,7 @@ impl DBusInstance {
         self.inner.list_files().await
     }
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<()> {
+    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<PrinterGcodeFileMetadata> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }

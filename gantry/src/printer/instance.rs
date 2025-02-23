@@ -228,6 +228,10 @@ impl Instance {
         });
     }
 
+    pub async fn get_temperatures(&self) -> PrinterResult<Vec<PrinterTemperatureInfo>>{
+        todo!()
+    }
+
     /// emergency stop
     pub fn emergency_stop(&self) -> PrinterResult<()> {
         // block the current thread to stop ASAP
@@ -320,7 +324,7 @@ impl Instance {
     /////////////////////////////////////////////
 
     /// start a print job
-    pub async fn start_print_job(&self, filename: &str) -> PrinterResult<()> {
+    pub async fn start_print_job(&self, filename: &str) -> PrinterResult<StartPrintJobResult> {
         todo!()
     }
     /// pause the print job
@@ -336,12 +340,31 @@ impl Instance {
         todo!()
     }
 
+    pub async fn get_print_job_status(&self) -> PrinterResult<PrintJobStatus>{
+        todo!()
+    }
+
     /// queue print job to run after current print job is finished
     pub async fn queue_print_job(&self, filename: &str) -> PrinterResult<PrinterQueuePrintJob> {
         todo!()
     }
     //// delete a print job in queue
-    pub async fn delete_queue_print_job(&self, id: u64) -> PrinterResult<()> {
+    pub async fn delete_queue_print_job(&self, id: &str) -> PrinterResult<()> {
+        todo!()
+    }
+
+    /// pause the job queue, next job will not start when current job is finished
+    pub async fn pause_job_queue(&self) -> PrinterResult<()> {
+        todo!()
+    }
+
+    /// resume the job queue
+    pub async fn resume_job_queue(&self) -> PrinterResult<()> {
+        todo!()
+    }
+
+    /// get a list of jobs in job queue
+    pub async fn list_job_queue(&self) -> PrinterResult<Vec<JobQueuePrintJob>> {
         todo!()
     }
 
@@ -354,7 +377,7 @@ impl Instance {
         todo!()
     }
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, filename: &str) -> PrinterResult<()> {
+    pub async fn get_file_metadata(&self, filename: &str) -> PrinterResult<PrinterGcodeFileMetadata> {
         todo!()
     }
     /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
