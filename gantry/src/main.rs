@@ -113,7 +113,7 @@ pub async fn main() {
             }),
         )
         .route(
-            "/gantry-web.html", 
+            "/gantry-web.html",
             axum::routing::get(|| async {
                 axum::response::Html(include_str!("../../gantry-webui/gantry-web.html"))
             }),

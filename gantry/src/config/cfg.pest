@@ -1,0 +1,42 @@
+LINE_END = _{"\n" | "\r\n" | "␊"}
+WHITESPACE_ = _{ " " | "\t" | "\r"}
+COMMENTS = _{(WHITESPACE_* ~ "#" ~ (!"\n" ~ ANY)* ~ "\n" | WHITESPACE_* ~ "\n")*}
+LINE_END_COMMENT = _{WHITESPACE_* ~ ((";" | "#") ~ (!"\n" ~ ANY)*)?}
+
+IDENT = @{ID_START ~ ID_CONTINUE*}
+
+CONFIG = { (COMMENTS ~ SECTION)* ~ COMMENTS ~ WHITESPACE_* ~ EOI}
+
+SECTION = {"[" ~ IDENT ~ WHITESPACE_* ~ IDENT? ~ "]" ~ LINE_END_COMMENT ~ ("\n" ~ COMMENTS ~ KEY_VALUE ~ ("\n" ~ COMMENTS ~ KEY_VALUE)*)?}
+KEY_VALUE = {IDENT ~ WHITESPACE_* ~ (":" | "=") ~ WHITESPACE_* ~ VALUE}
+
+VALUE = {
+    Multiline_number_array
+    | Multiline_string
+    | Ratio ~ LINE_END_COMMENT
+    | Number_array ~ LINE_END_COMMENT
+    | Number ~ LINE_END_COMMENT
+    | String_array ~ LINE_END_COMMENT
+    | Single_line_string ~ LINE_END_COMMENT
+}
+
+Number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+Ratio = @{ Number ~ ":" ~ Number ~ (WHITESPACE_* ~ "," ~ WHITESPACE_* ~ Number ~ ":" ~ Number)*}
+
+Number_array = {Number ~ (WHITESPACE_* ~ "," ~ WHITESPACE_* ~ Number)+}
+
+Multiline_number_array = {(LINE_END ~ COMMENTS ~ WHITESPACE_+ ~ Number ~ (WHITESPACE_* ~ "," ~ WHITESPACE_* ~ Number)* ~ LINE_END_COMMENT)+}
+
+Multiline_string = {(LINE_END ~ COMMENTS ~ WHITESPACE_+ ~ Single_line_string ~ LINE_END_COMMENT)+}
+
+String_array = {String ~ (WHITESPACE_* ~ "," ~ WHITESPACE_* ~ String)+}
+
+String = {(!LINE_END ~ !";" ~ !"," ~ ANY)*}
+
+Single_line_string = @{(!LINE_END ~ !";" ~ ANY)*}

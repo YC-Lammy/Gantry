@@ -50,13 +50,16 @@ impl DBusInstance {
     }
 
     /// get printer temperatures
-    pub async fn get_temperatures(&self, token: &str) -> PrinterResult<Vec<PrinterTemperatureInfo>> {
+    pub async fn get_temperatures(
+        &self,
+        token: &str,
+    ) -> PrinterResult<Vec<PrinterTemperatureInfo>> {
         // check for token only
         if let Err(err) = self.inner.validate_token(token) {
             return PrinterResult::err(err);
         }
 
-        return self.inner.get_temperatures().await
+        return self.inner.get_temperatures().await;
     }
 
     /// emergency stop
@@ -190,7 +193,11 @@ impl DBusInstance {
     /////////////////////////////////////////////
 
     /// start a print job
-    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<StartPrintJobResult> {
+    pub async fn start_print_job(
+        &self,
+        token: &str,
+        filename: &str,
+    ) -> PrinterResult<StartPrintJobResult> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
@@ -228,7 +235,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        return self.inner.get_print_job_status().await
+        return self.inner.get_print_job_status().await;
     }
 
     /// queue print job to run after current print job is finished
@@ -291,7 +298,11 @@ impl DBusInstance {
         self.inner.list_files().await
     }
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, token: &str, filename: &str) -> PrinterResult<PrinterGcodeFileMetadata> {
+    pub async fn get_file_metadata(
+        &self,
+        token: &str,
+        filename: &str,
+    ) -> PrinterResult<PrinterGcodeFileMetadata> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }

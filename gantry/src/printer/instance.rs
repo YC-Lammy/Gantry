@@ -224,7 +224,7 @@ impl Instance {
         });
     }
 
-    pub async fn get_temperatures(&self) -> PrinterResult<Vec<PrinterTemperatureInfo>>{
+    pub async fn get_temperatures(&self) -> PrinterResult<Vec<PrinterTemperatureInfo>> {
         todo!()
     }
 
@@ -250,7 +250,7 @@ impl Instance {
         let printer = self.printer.clone();
         let printer_config_path = self.path().join("printer.cfg");
 
-        tokio::spawn(async move{
+        tokio::spawn(async move {
             printer.write().await.restart(printer_config_path).await;
         });
 
@@ -268,11 +268,11 @@ impl Instance {
 
         let (x, y, z) = printer.get_endstop_status().await;
 
-        return PrinterResult::ok(PrinterEndstopStatus{
+        return PrinterResult::ok(PrinterEndstopStatus {
             x_triggered: x,
             y_triggered: y,
-            z_triggered: z
-        })
+            z_triggered: z,
+        });
     }
 
     /////////////////////////////////////////////
@@ -307,11 +307,14 @@ impl Instance {
     pub async fn run_gcode(&self, script: String) -> PrinterResult<()> {
         let printer = self.printer.read().await;
 
-        if let Err(e) = printer.run_gcode(script).await{
-            return PrinterResult::err(PrinterError { code: PrinterErrorCode::GcodeParseError, message: e })
+        if let Err(e) = printer.run_gcode(script).await {
+            return PrinterResult::err(PrinterError {
+                code: PrinterErrorCode::GcodeParseError,
+                message: e,
+            });
         }
 
-        return PrinterResult::ok(())
+        return PrinterResult::ok(());
     }
 
     pub async fn get_gcode_help(&self) -> PrinterResult<HashMap<String, String>> {
@@ -339,7 +342,7 @@ impl Instance {
         todo!()
     }
 
-    pub async fn get_print_job_status(&self) -> PrinterResult<PrintJobStatus>{
+    pub async fn get_print_job_status(&self) -> PrinterResult<PrintJobStatus> {
         todo!()
     }
 
@@ -376,7 +379,10 @@ impl Instance {
         todo!()
     }
     /// get metadata for a specified gcode file
-    pub async fn get_file_metadata(&self, filename: &str) -> PrinterResult<PrinterGcodeFileMetadata> {
+    pub async fn get_file_metadata(
+        &self,
+        filename: &str,
+    ) -> PrinterResult<PrinterGcodeFileMetadata> {
         todo!()
     }
     /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.

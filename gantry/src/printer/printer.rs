@@ -39,14 +39,14 @@ impl Printer {
             .open(&config_path)
             .await;
 
-        let mut file = match file{
+        let mut file = match file {
             Ok(f) => f,
-            Err(e) => todo!()
+            Err(e) => todo!(),
         };
-        
+
         let re = file.read_to_end(&mut printer_config).await;
-        
-        if let Err(e) = re{
+
+        if let Err(e) = re {
             todo!()
         }
         todo!()

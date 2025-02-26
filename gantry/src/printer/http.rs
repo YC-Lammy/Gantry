@@ -320,7 +320,7 @@ pub async fn cancel_print_job(
 /// get print job status
 pub async fn get_print_job_status(
     Extension(instance): Extension<Arc<Instance>>,
-) -> Json<PrinterResult<PrintJobStatus>>{
+) -> Json<PrinterResult<PrintJobStatus>> {
     Json(instance.get_print_job_status().await)
 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -378,8 +378,8 @@ pub async fn list_files(
     Json(instance.list_files().await)
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GetFileMetaParams{
-    pub filename: String
+pub struct GetFileMetaParams {
+    pub filename: String,
 }
 /// get metadata for a specified gcode file
 pub async fn get_file_metadata(
@@ -389,8 +389,8 @@ pub async fn get_file_metadata(
     Json(instance.get_file_metadata(&params.filename).await)
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ScanFileParams{
-    pub filename: String
+pub struct ScanFileParams {
+    pub filename: String,
 }
 /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
 pub async fn scan_file_metadata(
@@ -400,20 +400,20 @@ pub async fn scan_file_metadata(
     Json(instance.scan_file_metadata(&params.filename).await)
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UploadFileParams{
+pub struct UploadFileParams {
     pub filename: String,
     pub data: String,
 }
 /// upload a gcode file
 pub async fn upload_file(
     Extension(instance): Extension<Arc<Instance>>,
-    Json(params): Json<UploadFileParams>
+    Json(params): Json<UploadFileParams>,
 ) -> Json<PrinterResult<()>> {
     Json(instance.upload_file(&params.filename, params.data).await)
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DownloadFileParams{
-    pub filename: String
+pub struct DownloadFileParams {
+    pub filename: String,
 }
 /// download a gcode file
 pub async fn download_file(
@@ -429,13 +429,13 @@ pub async fn download_printer_config(
     Json(instance.download_printer_config().await)
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UploadPrinterConfigParams{
-    pub config: String
+pub struct UploadPrinterConfigParams {
+    pub config: String,
 }
 /// upload the printer config
 pub async fn upload_printer_config(
     Extension(instance): Extension<Arc<Instance>>,
-    Json(params): Json<UploadPrinterConfigParams>
+    Json(params): Json<UploadPrinterConfigParams>,
 ) -> Json<PrinterResult<()>> {
     Json(instance.upload_printer_config(params.config).await)
 }
