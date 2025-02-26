@@ -1,5 +1,4 @@
 use axum::Router;
-use axum::response::Html;
 use axum::routing::get;
 
 pub fn create_service_router() -> Router {

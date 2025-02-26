@@ -49,6 +49,13 @@ pub fn create_service_router() -> axum::Router {
         .route("/pause_job_queue", post(pause_job_queue))
         .route("/resume_job_queue", post(resume_job_queue))
         .route("/list_job_queue", get(list_job_queue))
+        .route("/list_files", get(list_files))
+        .route("/file_metadata", get(get_file_metadata))
+        .route("/scan_file_metadata", post(scan_file_metadata))
+        .route("/download_file", get(download_file))
+        .route("/upload_file", post(upload_file))
+        .route("/download_printer_config", get(download_printer_config))
+        .route("/upload_printer_config", post(upload_printer_config))
         .layer(axum::middleware::from_fn(instance_authenticator));
 
     without_bearer.merge(with_bearer)
@@ -176,7 +183,7 @@ pub async fn get_temperatures(
 pub async fn emergency_stop(
     Extension(instance): Extension<Arc<Instance>>,
 ) -> Json<PrinterResult<()>> {
-    Json(instance.emergency_stop())
+    Json(instance.emergency_stop().await)
 }
 /// restart gantry
 pub async fn restart(Extension(instance): Extension<Arc<Instance>>) -> Json<PrinterResult<()>> {
@@ -370,34 +377,50 @@ pub async fn list_files(
 ) -> Json<PrinterResult<Vec<PrinterGcodeFile>>> {
     Json(instance.list_files().await)
 }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetFileMetaParams{
+    pub filename: String
+}
 /// get metadata for a specified gcode file
 pub async fn get_file_metadata(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
+    Json(params): Json<GetFileMetaParams>,
 ) -> Json<PrinterResult<PrinterGcodeFileMetadata>> {
-    Json(instance.get_file_metadata(filename).await)
+    Json(instance.get_file_metadata(&params.filename).await)
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScanFileParams{
+    pub filename: String
 }
 /// Initiate a metadata scan for a selected file. If the file has already been scanned the endpoint will force a re-scan.
 pub async fn scan_file_metadata(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
+    Json(params): Json<ScanFileParams>,
 ) -> Json<PrinterResult<()>> {
-    Json(instance.scan_file_metadata(filename).await)
+    Json(instance.scan_file_metadata(&params.filename).await)
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UploadFileParams{
+    pub filename: String,
+    pub data: String,
 }
 /// upload a gcode file
 pub async fn upload_file(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
-    filedata: String,
+    Json(params): Json<UploadFileParams>
 ) -> Json<PrinterResult<()>> {
-    Json(instance.upload_file(filename, filedata).await)
+    Json(instance.upload_file(&params.filename, params.data).await)
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DownloadFileParams{
+    pub filename: String
 }
 /// download a gcode file
 pub async fn download_file(
     Extension(instance): Extension<Arc<Instance>>,
-    filename: &str,
+    Json(params): Json<DownloadFileParams>,
 ) -> Json<PrinterResult<String>> {
-    Json(instance.download_file(filename).await)
+    Json(instance.download_file(&params.filename).await)
 }
 /// download the printer config
 pub async fn download_printer_config(
@@ -405,10 +428,14 @@ pub async fn download_printer_config(
 ) -> Json<PrinterResult<String>> {
     Json(instance.download_printer_config().await)
 }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UploadPrinterConfigParams{
+    pub config: String
+}
 /// upload the printer config
 pub async fn upload_printer_config(
     Extension(instance): Extension<Arc<Instance>>,
-    config: String,
+    Json(params): Json<UploadPrinterConfigParams>
 ) -> Json<PrinterResult<()>> {
-    Json(instance.upload_printer_config(config).await)
+    Json(instance.upload_printer_config(params.config).await)
 }

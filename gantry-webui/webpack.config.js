@@ -6,22 +6,20 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'gantry-web.bundle.js',
     libraryTarget: 'var',
-    library: 'Printer',
+    library: 'TS',
   },
   mode: 'development',
   module: {
     rules: [
       {
-        test: /\.m?js$/,
+        test: /\.tsx?$/,
         exclude: /(node_modules)/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env']
-          }
-        }
+        use: 'ts-loader'
       }
     ]
+  },
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js'],
   },
   target: 'node'
 };

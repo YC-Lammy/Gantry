@@ -535,6 +535,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower",
+ "unicode-id-start",
  "zbus",
  "zvariant",
 ]
@@ -1761,6 +1762,12 @@ dependencies = [
  "tempfile",
  "winapi",
 ]
+
+[[package]]
+name = "unicode-id-start"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f322b60f6b9736017344fa0635d64be2f458fbc04eef65f6be22976dd1ffd5b"
 
 [[package]]
 name = "unicode-ident"

@@ -1,16 +1,16 @@
 
 export class PrinterError{
-    is_http_error;
-    error_code;
-    message;
+    is_http_error: boolean;
+    error_code: string | number;
+    message: string;
 
-    constructor(is_http_error, error_code, message){
+    constructor(is_http_error: boolean, error_code: string | number, message: string){
         this.is_http_error = is_http_error;
         this.error_code = error_code;
         this.message = message;
     }
 
-    errorKine(){
+    errorKind(){
         if (this.is_http_error){
             return "HTTP Error: " + this.error_code
         }
@@ -19,22 +19,22 @@ export class PrinterError{
     }
 
     toString(){
-        this.errorKine() + ": " + this.message
+        this.errorKind() + ": " + this.message
     }
 }
 
 export class Printer{
-    #name;
-    #url;
-    #bearer;
-    #refresh_token;
+    #name: string;
+    #url: string;
+    #bearer: string;
+    #refresh_token: string;
 
-    constructor(name, url){
+    constructor(name: string, url: string){
         this.#name = name;
         this.#url = url;
     }
 
-    check_tokens(bearer, refresh_token){
+    check_tokens(bearer: string, refresh_token: string){
         this.#bearer = bearer;
         try{
             this.get_info();
@@ -50,7 +50,7 @@ export class Printer{
         return Boolean(this.#bearer)
     }
 
-    async fetch(path, method, body){
+    async fetch(path: string, method: string, body: any): Promise<any>{
         try{
             let request = new Request(
             this.#url + "/" + path + "?name=" + this.#name,
@@ -94,7 +94,7 @@ export class Printer{
     }
 
     store_tokens(){
-        let tokens = JSON.parse(localStorage.getItem("tokens"));
+        let tokens = JSON.parse(localStorage.getItem("tokens") ?? "");
 
         if (!tokens){
             tokens = {}
@@ -105,7 +105,7 @@ export class Printer{
         localStorage.setItem("tokens", JSON.stringify(tokens));
     }
 
-    async login(password){
+    async login(password: string){
         if (this.#bearer){
             return;
         }
@@ -177,7 +177,7 @@ export class Printer{
         await this.fetch("logout", "POST", {})
     }
 
-    async reset_password(new_password){
+    async reset_password(new_password: string){
         await this.fetch("reset_password", "POST", {"new_password": new_password})
     }
 

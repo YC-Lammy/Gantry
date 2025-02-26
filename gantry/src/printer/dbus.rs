@@ -66,9 +66,7 @@ impl DBusInstance {
             return PrinterResult::err(err);
         }
 
-        self.inner.emergency_stop();
-
-        return PrinterResult::ok(());
+        return self.inner.emergency_stop().await;
     }
 
     /// restart gantry

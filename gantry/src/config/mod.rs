@@ -1,3 +1,5 @@
+mod cfg;
+
 use std::collections::HashMap;
 
 use tokio::fs::File;

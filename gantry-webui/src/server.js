@@ -12,6 +12,7 @@ export class Server{
         return [
             {
                 name: "Trident",
+                login_required: false,
             }
         ]
     }

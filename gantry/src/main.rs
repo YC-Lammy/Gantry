@@ -109,13 +109,13 @@ pub async fn main() {
         .route(
             "/",
             axum::routing::get(|| async {
-                axum::response::Html(include_str!("../../gantry-webui/dist/gantry-web.html"))
+                axum::response::Html(include_str!("../../gantry-webui/gantry-web.html"))
             }),
         )
         .route(
             "/gantry-web.html", 
             axum::routing::get(|| async {
-                axum::response::Html(include_str!("../../gantry-webui/dist/gantry-web.html"))
+                axum::response::Html(include_str!("../../gantry-webui/gantry-web.html"))
             }),
         )
         .route(
@@ -123,12 +123,12 @@ pub async fn main() {
             axum::routing::get(|| async {
                 (
                     [("content-type", "text/css")],
-                    include_str!("../../gantry-webui/dist/gantry-web.css"),
+                    include_str!("../../gantry-webui/gantry-web.css"),
                 )
             }),
         )
         .route(
-            "/gantry-web.js",
+            "/dist/gantry-web.bundle.js",
             axum::routing::get(|| async {
                 (
                     [("content-type", "text/javascript")],

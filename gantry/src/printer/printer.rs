@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use gantry_api::PrinterErrorCode;
+use tokio::io::AsyncReadExt;
 
 use crate::config::PrinterConfig;
 
@@ -27,7 +29,26 @@ impl Printer {
 
     pub fn set_error_state(&mut self, code: PrinterErrorCode, message: String) {}
 
-    pub async fn restart(&mut self, config: PrinterConfig) {
+    pub async fn restart(&mut self, config_path: PathBuf) {
+        let mut printer_config = Vec::new();
+
+        let file = tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&config_path)
+            .await;
+
+        let mut file = match file{
+            Ok(f) => f,
+            Err(e) => todo!()
+        };
+        
+        let re = file.read_to_end(&mut printer_config).await;
+        
+        if let Err(e) = re{
+            todo!()
+        }
         todo!()
     }
 
@@ -38,7 +59,7 @@ impl Printer {
         todo!()
     }
 
-    pub async fn run_gcode(&mut self, script: String) -> Result<(), String> {
+    pub async fn run_gcode(&self, script: String) -> Result<(), String> {
         todo!()
     }
 }

@@ -1,11 +1,13 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
 use gantry_api::*;
 
 use super::dbus::DBusInstance;
-use crate::config::{InstanceConfig, PrinterConfig};
+use crate::config::InstanceConfig;
 
 pub struct Instance {
     /// index of instance
@@ -19,7 +21,7 @@ pub struct Instance {
     /// used to authenticate and store temporary tokens
     auth: super::auth::Auth,
     /// the printer object, will be none unless state is ready
-    printer: RwLock<super::Printer>,
+    printer: Arc<RwLock<super::Printer>>,
 }
 
 impl Instance {
@@ -57,7 +59,7 @@ impl Instance {
             uuid: config.uuid,
             auth: super::auth::Auth::acquire(config.uuid),
             printer_path,
-            printer: RwLock::new(super::Printer::new()),
+            printer: Arc::new(RwLock::new(super::Printer::new())),
         };
 
         // start the printer
@@ -68,12 +70,6 @@ impl Instance {
 
     pub fn create_dbus_service(self: Arc<Self>) -> DBusInstance {
         DBusInstance { inner: self }
-    }
-
-    pub fn create_axum_router(self: Arc<Self>) -> axum::Router {
-        axum::Router::new()
-            .with_state(self)
-            .route("login", axum::routing::post(|| async {}))
     }
 
     pub fn path(&self) -> &PathBuf {
@@ -233,7 +229,7 @@ impl Instance {
     }
 
     /// emergency stop
-    pub fn emergency_stop(&self) -> PrinterResult<()> {
+    pub async fn emergency_stop(&self) -> PrinterResult<()> {
         // block the current thread to stop ASAP
         tokio::task::block_in_place(|| {
             let mut printer = self.printer.blocking_write();
@@ -251,23 +247,12 @@ impl Instance {
         // stop the printer
         printer.emergency_stop();
 
+        let printer = self.printer.clone();
         let printer_config_path = self.path().join("printer.cfg");
 
-        let printer_config = tokio::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&printer_config_path)
-            .await
-            .expect("failed to open printer.cfg");
-
-        match PrinterConfig::parse(printer_config).await {
-            Ok(config) => printer.restart(config).await,
-            Err(msg) => {
-                // set printer to error state
-                printer.set_error_state(PrinterErrorCode::PrinterConfigParseError, msg);
-            }
-        };
+        tokio::spawn(async move{
+            printer.write().await.restart(printer_config_path).await;
+        });
 
         return PrinterResult::ok(());
     }
@@ -279,7 +264,15 @@ impl Instance {
 
     /// returns endstop triggered xyz
     pub async fn query_endstops(&self) -> PrinterResult<PrinterEndstopStatus> {
-        todo!()
+        let printer = self.printer.read().await;
+
+        let (x, y, z) = printer.get_endstop_status().await;
+
+        return PrinterResult::ok(PrinterEndstopStatus{
+            x_triggered: x,
+            y_triggered: y,
+            z_triggered: z
+        })
     }
 
     /////////////////////////////////////////////
@@ -312,7 +305,13 @@ impl Instance {
     /////////////////////////////////////////////
 
     pub async fn run_gcode(&self, script: String) -> PrinterResult<()> {
-        todo!()
+        let printer = self.printer.read().await;
+
+        if let Err(e) = printer.run_gcode(script).await{
+            return PrinterResult::err(PrinterError { code: PrinterErrorCode::GcodeParseError, message: e })
+        }
+
+        return PrinterResult::ok(())
     }
 
     pub async fn get_gcode_help(&self) -> PrinterResult<HashMap<String, String>> {
