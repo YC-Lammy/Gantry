@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 gantry-api = {path = "../gantry-api"}
 
+ahash = "0.8"
 anyhow = "1"
 axum = "0.8"
 axum-auth = "0.8"
@@ -13,6 +14,7 @@ clap = {version = "4.5", features = ["derive"]}
 dirs = "5.0"
 fast-float = "0.2"
 itertools = "0.14"
+itoa = "1"
 lazy_static = "1.5"
 pest = "2"
 pest_derive = "2"

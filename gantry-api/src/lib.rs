@@ -324,7 +324,7 @@ pub trait Printer {
     /// cancel the print job
     pub async fn cancel_print_job(&self, token: &str) -> PrinterResult<()>;
     /// get print job status
-    pub async fn get_print_job_status(&self, token: &str) -> PrinterResult<>;
+    pub async fn get_print_job_status(&self, token: &str) -> PrinterResult<PrintJobStatus>;
 
     /// queue print job to run after current print job is finished
     pub async fn queue_print_job(

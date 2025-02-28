@@ -1,9 +1,11 @@
 mod config;
 mod dbus;
 mod extensions;
+mod gcode;
 mod kinematics;
 mod printer;
 mod server;
+mod global_auth;
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -26,16 +26,16 @@ impl<'a> Stream<'a> {
         }
     }
 
-    pub fn line(&self, position: usize) -> usize{
+    pub fn line(&self, position: usize) -> usize {
         let mut count = 0;
 
-        for i in (0..position).rev(){
-            if self.data[i] == b'\n'{
+        for i in (0..position).rev() {
+            if self.data[i] == b'\n' {
                 count += 1;
             }
         }
 
-        return count
+        return count;
     }
 }
 
@@ -134,7 +134,6 @@ pub struct Section {
 
 impl Parser for Section {
     fn parse(stream: &mut StreamCtx) -> Result<Self, ParseError> {
-        
         let mut stream = stream.create_context();
 
         // a section should start with '['
@@ -154,13 +153,13 @@ impl Parser for Section {
             Some(b' ') => {
                 suffix_name = Some(Ident::parse(&mut stream)?);
                 // end header
-                if stream.next_char() != Some(b']'){
+                if stream.next_char() != Some(b']') {
                     return Err(ParseError {
                         position: stream.current_position(),
                         message: "expecting character ']'".into(),
                     });
                 }
-            },
+            }
             Some(b']') => {}
             _ => {
                 return Err(ParseError {
@@ -275,7 +274,7 @@ impl Parser<()> for Comments {
     fn parse(stream: &mut StreamCtx) -> Result<(), ParseError> {
         let mut stream = stream.create_context();
 
-        while Comment::parse(&mut stream).is_ok() || EmptyLine::parse(&mut stream).is_ok(){
+        while Comment::parse(&mut stream).is_ok() || EmptyLine::parse(&mut stream).is_ok() {
             // parse
         }
 
@@ -315,21 +314,21 @@ impl Parser<()> for Comment {
 
 pub struct LineEndComment;
 
-impl Parser<()> for LineEndComment{
+impl Parser<()> for LineEndComment {
     fn parse(stream: &mut StreamCtx) -> Result<(), ParseError> {
         let mut stream = stream.create_context();
 
         Whitspaces::parse(&mut stream).ok();
 
-        if stream.next_char() == Some(b';'){
-            while stream.peek() != Some(b'\n'){
+        if stream.next_char() == Some(b';') {
+            while stream.peek() != Some(b'\n') {
                 stream.next_char();
             }
         }
 
         stream.finish();
 
-        return Ok(())
+        return Ok(());
     }
 }
 
@@ -422,10 +421,10 @@ impl Parser for Value {
                         if c == b'\n' {
                             break;
                         }
-                        if c == b';'{
+                        if c == b';' {
                             is_comment = true;
                         }
-                        if !is_comment{
+                        if !is_comment {
                             s.push(c as char);
                         }
                     }
@@ -548,10 +547,10 @@ impl Parser<String> for Gcode {
 
         let mut lines = String::new();
 
-        loop{
-            match stream.peek(){
+        loop {
+            match stream.peek() {
                 Some(b' ') => {
-                    if EmptyLine::parse(&mut stream).is_ok(){
+                    if EmptyLine::parse(&mut stream).is_ok() {
                         continue;
                     }
 
@@ -560,15 +559,15 @@ impl Parser<String> for Gcode {
                     let line = GcodeLine::parse(&mut stream)?;
                     lines.push_str(&line);
                     lines.push('\n');
-                },
+                }
                 Some(b'#') => {
                     Comment::parse(&mut stream).ok();
-                },
+                }
                 Some(b'\n') => {
                     stream.next_char();
                     continue;
                 }
-                _ => break
+                _ => break,
             }
         }
 
@@ -595,11 +594,11 @@ impl Parser<String> for GcodeLine {
                 break;
             }
 
-            if c == b';'{
+            if c == b';' {
                 is_comment = true;
             }
 
-            if !is_comment{
+            if !is_comment {
                 s.push(c as char);
             }
         }
@@ -801,7 +800,7 @@ fn test_key_values() {
 }
 
 #[test]
-fn test_cartesian_cfg(){
+fn test_cartesian_cfg() {
     const CARTESIAN_CFG: &[u8] = include_bytes!("../../../config/example-cartesian.cfg");
 
     let mut stream = Stream::new(CARTESIAN_CFG);
@@ -813,7 +812,7 @@ fn test_cartesian_cfg(){
 }
 
 #[test]
-fn test_kit_voron_cfg(){
+fn test_kit_voron_cfg() {
     const KIT_VORON_CFG: &[u8] = include_bytes!("../../../config/kit-voron2-250mm.cfg");
 
     let mut stream = Stream::new(KIT_VORON_CFG);
@@ -822,10 +821,10 @@ fn test_kit_voron_cfg(){
     let re = Config::parse(&mut ctx);
 
     drop(ctx);
-    
+
     println!("{:#?}", re);
 
-    if let Err(e) = re{
+    if let Err(e) = re {
         println!("line {}", stream.line(e.position));
     }
 }
