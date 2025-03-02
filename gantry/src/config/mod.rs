@@ -1,9 +1,9 @@
 mod cfg;
 mod cfg_pest;
 
-use std::collections::HashMap;
+pub use cfg::Config as PrinterConfig;
 
-use tokio::fs::File;
+use std::collections::HashMap;
 
 pub struct GantryConfig {
     /// printer instances to boot up
@@ -18,17 +18,9 @@ pub struct InstanceConfig {
 }
 
 impl GantryConfig {
-    pub async fn parse(file: File) -> Result<Self, ()> {
+    pub async fn parse(_file: &str) -> Result<Self, ()> {
         return Ok(GantryConfig {
             instances: HashMap::new(),
         });
-    }
-}
-
-pub struct PrinterConfig {}
-
-impl PrinterConfig {
-    pub async fn parse(file: File) -> Result<Self, String> {
-        return Ok(PrinterConfig {});
     }
 }

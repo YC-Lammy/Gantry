@@ -1,70 +1,162 @@
-
-
-
 // Binary Gcode
 
-pub struct Instruction{
-    pub opcode: Opcode,
-    pub oprand: Operand
+use std::io::SeekFrom;
+
+use tokio::{fs::File, io::AsyncSeekExt};
+
+#[repr(u16)]
+pub enum Error {
+    Success,
+    ReadError,
+    WriteError,
+    InvalidMagicNumber,
+    InvalidVersionNumber,
+    InvalidChecksumType,
+    InvalidBlockType,
+    InvalidCompressionType,
+    InvalidMetadataEncodingType,
+    InvalidGCodeEncodingType,
+    DataCompressionError,
+    DataUncompressionError,
+    MetadataEncodingError,
+    MetadataDecodingError,
+    GCodeEncodingError,
+    GCodeDecodingError,
+    BlockNotFound,
+    InvalidChecksum,
+    InvalidThumbnailFormat,
+    InvalidThumbnailWidth,
+    InvalidThumbnailHeight,
+    InvalidThumbnailDataSize,
+    InvalidBinaryGCodeFile,
+    InvalidAsciiGCodeFile,
+    InvalidSequenceOfBlocks,
+    InvalidBuffer,
+    AlreadyBinarized,
+    MissingPrinterMetadata,
+    MissingPrintMetadata,
+    MissingSlicerMetadata,
 }
 
-pub union Opcode{
-    builtin: BuiltinOpcode,
-    external: u64
-}
-
+#[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BuiltinOpcode{
-    prefix: u8,
-    index: u32,
-    suffix: u8,
+pub enum ChecksumType {
+    None,
+    CRC32,
 }
 
-impl BuiltinOpcode{
-    pub const G1: Self = Self{ prefix: b'G', index: 1, suffix: 0};
-    pub const G4: Self = Self{ prefix: b'G', index: 4, suffix: 0};
-    pub const G28: Self = Self{ prefix: b'G', index: 28, suffix: 0};
-    pub const G90: Self = Self{ prefix: b'G', index: 90, suffix: 0};
-    pub const G91: Self = Self{ prefix: b'G', index: 91, suffix: 0};
-    pub const G92: Self = Self{ prefix: b'G', index: 92, suffix: 0};
+#[repr(u16)]
+pub enum BlockType {
+    FileMetadata,
+    GCode,
+    SlicerMetadata,
+    PrinterMetadata,
+    PrintMetadata,
+    Thumbnail,
 }
 
-#[derive(Debug)]
-pub struct Operand{
-    /// flags
-    pub flags: u16,
-    /// length of operand in bytes
-    pub length: u16,
-    /// pointer to the operand data
-    pub pointer: u32,
+#[repr(u16)]
+pub enum CompressionType {
+    None,
+    Deflate,
+    Heatshrink11_4,
+    Heatshrink12_4,
 }
 
-#[derive(Debug)]
-pub struct G1Params{
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub e: f32,
-    pub f: f32
+#[repr(u16)]
+pub enum MetadataEncodingType {
+    INI,
 }
 
-#[derive(Debug)]
-pub struct G4Params{
-    pub p: f32,
-    pub s: f32,
+#[repr(u16)]
+pub enum GCodeEncodingType {
+    None,
+    MeatPack,
+    MeatPackComments,
 }
 
-#[derive(Debug)]
-pub struct G28Params{
-    pub x: bool,
-    pub y: bool,
-    pub z: bool,
+#[repr(u16)]
+pub enum ThumbnailFormat {
+    PNG,
+    JPG,
+    QOI,
 }
 
-#[derive(Debug)]
-pub struct G92Params{
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub e: f32,
+struct FileHeader {
+    /// GCDE
+    pub magic: u32,
+    /// Version of the G-code binarization
+    pub version: u32,
+    /// Algorithm used for checksum
+    pub checksum_type: u16,
+}
+
+impl FileHeader {
+    pub fn new(magic: u32, version: u32, checksum_type: u16) -> Self {
+        Self {
+            magic,
+            version,
+            checksum_type,
+        }
+    }
+}
+
+pub struct BlockHeader {
+    pub type_: u16,
+    pub compression: u16,
+    pub uncompressed_size: u32,
+    pub compressed_size: u32,
+    position: usize,
+}
+
+impl BlockHeader {
+    pub fn get_position(&self) -> usize{
+        self.position
+    }
+
+    pub fn get_size(&self) -> u32{
+        if self.compression == CompressionType::None as u16{
+            return self.uncompressed_size
+        }
+
+        return self.compressed_size
+    }
+}
+
+pub struct ThumbnailParams {
+    pub format: u16,
+    pub width: u16,
+    pub height: u16,
+}
+
+pub struct CheckSum{
+    ty: ChecksumType
+}
+
+impl CheckSum{
+    pub fn new(ty: ChecksumType) -> Self{
+        Self{
+            ty
+        }
+    }
+
+    pub fn get_type(&self) -> ChecksumType{
+        self.ty
+    }
+}
+
+async fn verify_block_checksum(file: &mut File, file_header: &FileHeader, block_header: &BlockHeader, buffer: &mut [u8]) -> Result<(), Error>{
+    if buffer.len() == 0{
+        return Err(Error::InvalidBuffer)
+    }
+
+    if file_header.checksum_type == ChecksumType::None as u16{
+        return Ok(())
+    }
+
+    if file.seek(SeekFrom::Start(block_header.get_position() as u64 + block_header.get_size() as u64)).await.is_err(){
+        return Err(Error::ReadError)
+    }
+
+    todo!()
 }

@@ -2,16 +2,17 @@ mod config;
 mod dbus;
 mod extensions;
 mod gcode;
+mod global_auth;
 mod kinematics;
 mod printer;
 mod server;
-mod global_auth;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
 use tokio::sync::RwLock;
 
 pub const VERSION: (u8, u8, u8) = (0, 0, 1);
@@ -56,8 +57,10 @@ pub async fn main() {
         .canonicalize()
         .expect("path error");
 
+    let mut config_file = String::new();
+
     // open the config file in write mode
-    let config_file = OpenOptions::new()
+    OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -66,10 +69,13 @@ pub async fn main() {
         .expect(&format!(
             "cannot open file '{}'",
             gantry_path.join("Gantry.toml").display()
-        ));
+        ))
+        .read_to_string(&mut config_file)
+        .await
+        .expect("read error");
 
     // parse config file
-    let config = config::GantryConfig::parse(config_file).await.unwrap();
+    let config = config::GantryConfig::parse(&config_file).await.unwrap();
 
     // construct root dbus service
     let dbus = zbus::connection::Builder::session()

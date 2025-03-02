@@ -1,0 +1,588 @@
+
+WHITESPACE = _{" " | "\t"}
+LINE_END = _{"\n" | "\r\n"}
+
+String = @{"\"" ~ (!LINE_END ~ !"\"" ~ ANY)* ~ "\"" | (!LINE_END ~ ANY)* }
+
+Number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+Int = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+}
+
+Name = @{ID_START ~ ID_CONTINUE*}
+
+GcodeFile = {
+    (
+        (GcodeLine ~ LINE_END)
+        | (SlicerInfo ~ LINE_END) 
+        | (ThumbnailInfo ~ LINE_END)
+        | (Meta ~ LINE_END)
+        | (Config ~ LINE_END)
+        | (CommentLine ~ LINE_END)
+        | LINE_END
+    )*
+    ~ (
+        GcodeLine
+        | SlicerInfo 
+        | ThumbnailInfo
+        | Meta
+        | Config
+        | CommentLine
+    )*
+    ~ EOI
+}
+
+// handles async parsing
+GcodeFileLine = {
+    (SlicerInfo 
+    | ThumbnailInfo 
+    | Meta
+    | Config
+    | CommentLine
+    | GcodeLine 
+    | LINE_END
+    ) ~ LINE_END?
+}
+
+SlicerInfo = {";" ~ "generated" ~ "by" ~ Name ~ SlicerVersion ~ "on" ~ Date ~ "at" ~ Time}
+
+SlicerVersion = @{(ID_CONTINUE | ".")+}
+Date = @{('0'..'9'){4} ~ "-" ~ ('0'..'9'){2} ~ "-" ~ ('0'..'9'){2}}
+Time = @{('0'..'9'){2} ~ ":" ~ ('0'..'9'){2} ~ ":" ~ ('0'..'9'){2} ~ ("UTC")?}
+
+Base64 = {'a'..'z' | 'A'..'Z' | '0'..'9' | "+" | "/" | "="}
+
+Thumbnail = {ThumbnailInfo ~ ThumbnailLine* ~ ThumbnailEnd}
+ThumbnailInfo = {";" ~ "thumbnail" ~ "begin" ~ ThumbnailPixels ~ ThumbnailBytes ~ LINE_END}
+ThumbnailPixels = @{('0'..'9')+ ~ "x" ~ ('0'..'9')+}
+ThumbnailBytes = @{('0'..'9')+}
+ThumbnailLine = @{";" ~ WHITESPACE* ~ Base64* ~ WHITESPACE* ~ LINE_END}
+ThumbnailEnd = _{";" ~ "thumbnail" ~ "end" ~ &LINE_END}
+
+CommentLine = _{";" ~ (!LINE_END ~ ANY)*}
+GcodeLine = {!";" ~ Name ~ (!LINE_END ~ ANY)*}
+
+Meta = {
+    (
+        FilamentLengthUsed
+        | FilamentVolumeUsed
+        | FilamentWeightUsed
+        | FilamentCost
+        | TotalFilamentLengthUsed
+        | TotalFilamentVolumeUsed
+        | TotalFilamentWeightUsed
+        | TotalFilamentCost
+        | TotalLayersCount
+        | TotalFilamentWeightUsedWipeTower
+        | EstimatedPrintTime
+        | EstimatedFirstLayerPrintTime
+    )
+}
+
+FilamentLengthUsed = {";" ~ "filament" ~ "used" ~ "[mm]" ~ "=" ~ Number}
+FilamentVolumeUsed = {";" ~ "filament" ~ "used" ~ "[cm3]" ~ "=" ~ Number}
+FilamentWeightUsed = {";" ~ "filament" ~ "used" ~ "[g]" ~ "=" ~ Number}
+FilamentCost = {";" ~ "filament" ~ "cost" ~ "=" ~ Number}
+TotalFilamentLengthUsed = {";" ~ "total" ~ "filament" ~ "used" ~ "[mm]" ~ "=" ~ Number}
+TotalFilamentVolumeUsed = {";" ~ "total" ~ "filament" ~ "used" ~ "[cm3]" ~ "=" ~ Number}
+TotalFilamentWeightUsed = {";" ~ "total" ~ "filament" ~ "used" ~ "[g]" ~ "=" ~ Number}
+TotalFilamentCost = {";" ~ "total" ~ "filament" ~ "cost" ~ "=" ~ Number}
+TotalLayersCount = {";" ~ "total" ~ "layers" ~ "count" ~ "=" ~ Int}
+TotalFilamentWeightUsedWipeTower = {";" ~ "total" ~ "filament" ~ "used" ~ "for" ~ "wipe" ~ "tower" ~ "[g]" ~ "=" ~ Number}
+
+PrintTimeHour = @{Int}
+PrintTimeMinute = @{Int}
+PrintTimeSeconds = @{Int}
+PrintTime = {(PrintTimeHour ~ "h")? ~ (PrintTimeMinute ~ "m")? ~ (PrintTimeSeconds ~ "s")?}
+
+EstimatedPrintTime = {";" ~ "estimated" ~ "printing" ~ "time" ~ "(normal mode)" ~ "=" ~ PrintTime}
+EstimatedFirstLayerPrintTime = {";" ~ "estimated" ~ "first" ~ "layer" ~ "printing" ~ "time" ~ "(normal mode)" ~ "=" ~ PrintTime}
+
+Config = {
+    ";" ~ Name ~ "=" ~ String
+}
+
+/*
+AccelToDecelEnable = {";" ~ "accel_to_decel_enable" ~ "=" ~ Number ~  LINE_END}
+AccelToDecelFactor = {";" ~ "accel_to_decel_factor" ~ "=" ~ Percentage ~  LINE_END}
+ActivateAirFiltration = {";" ~ "activate_air_filtration" ~ "=" ~ Number ~  LINE_END}
+ActivateChamberTempControl = {";" ~ "activate_chamber_temp_control" ~ "=" ~ Number ~  LINE_END}
+AdaptiveBedMeshMargin = {";" ~ "adaptive_bed_mesh_margin" ~ "=" ~ Number ~  LINE_END}
+AdaptivePressureAdvance = {";" ~ "adaptive_pressure_advance" ~ "=" ~ Number ~  LINE_END}
+AdaptivePressureAdvanceBridges = {";" ~ "adaptive_pressure_advance_bridges" ~ "=" ~ Number ~  LINE_END}
+AdaptivePressureAdvanceModel = {";" ~ "adaptive_pressure_advance_model" ~ "=" ~ String ~  LINE_END}
+AdaptivePressureAdvanceOverhangs = {";" ~ "adaptive_pressure_advance_overhangs" ~ "=" ~ Number ~  LINE_END}
+AdditionalCoolingFanSpeed = {";" ~ "additional_cooling_fan_speed" ~ "=" ~ Number ~  LINE_END}
+AlternateExtraWall = {";" ~ "alternate_extra_wall" ~ "=" ~ Number ~  LINE_END}
+AuxiliaryFan = {";" ~ "auxiliary_fan" ~ "=" ~ Number ~  LINE_END}
+BblCalibMarkLogo = {";" ~ "bbl_calib_mark_logo" ~ "=" ~ Number ~  LINE_END}
+BblUsePrinthost = {";" ~ "bbl_use_printhost" ~ "=" ~ Number ~  LINE_END}
+BedCustomModel = {";" ~ "bed_custom_model" ~ "=" ~ String ~  LINE_END}
+BedCustomTexture = {";" ~ "bed_custom_texture" ~ "=" ~ String ~  LINE_END}
+BedExcludeArea = {";" ~ "bed_exclude_area" ~ "=" ~ Number ~ "x" ~ Number ~  LINE_END}
+BedMeshMax = {";" ~ "bed_mesh_max" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+BedMeshMin = {";" ~ "bed_mesh_min" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+BedMeshProbeDistance = {";" ~ "bed_mesh_probe_distance" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+BeforeLayerChangeGcode = {";" ~ "before_layer_change_gcode" ~ "=" ~ String ~  LINE_END}
+BestObjectPos = {";" ~ "best_object_pos" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+BottomShellLayers = {";" ~ "bottom_shell_layers" ~ "=" ~ Number ~  LINE_END}
+BottomShellThickness = {";" ~ "bottom_shell_thickness" ~ "=" ~ Number ~  LINE_END}
+BottomSolidInfillFlowRatio = {";" ~ "bottom_solid_infill_flow_ratio" ~ "=" ~ Number ~  LINE_END}
+BottomSurfacePattern = {";" ~ "bottom_surface_pattern" ~ "=" ~ String ~  LINE_END}
+BridgeAcceleration = {";" ~ "bridge_acceleration" ~ "=" ~ Percentage ~  LINE_END}
+BridgeAngle = {";" ~ "bridge_angle" ~ "=" ~ Number ~  LINE_END}
+BridgeDensity = {";" ~ "bridge_density" ~ "=" ~ Percentage ~  LINE_END}
+BridgeFlow = {";" ~ "bridge_flow" ~ "=" ~ Number ~  LINE_END}
+BridgeNoSupport = {";" ~ "bridge_no_support" ~ "=" ~ Number ~  LINE_END}
+BridgeSpeed = {";" ~ "bridge_speed" ~ "=" ~ Number ~  LINE_END}
+BrimEarsDetectionLength = {";" ~ "brim_ears_detection_length" ~ "=" ~ Number ~  LINE_END}
+BrimEarsMaxAngle = {";" ~ "brim_ears_max_angle" ~ "=" ~ Number ~  LINE_END}
+BrimObjectGap = {";" ~ "brim_object_gap" ~ "=" ~ Number ~  LINE_END}
+BrimType = {";" ~ "brim_type" ~ "=" ~ String ~  LINE_END}
+BrimWidth = {";" ~ "brim_width" ~ "=" ~ Number ~  LINE_END}
+ChamberTemperature = {";" ~ "chamber_temperature" ~ "=" ~ Number ~  LINE_END}
+ChangeExtrusionRoleGcode = {";" ~ "change_extrusion_role_gcode" ~ "=" ~ String ~  LINE_END}
+ChangeFilamentGcode = {";" ~ "change_filament_gcode" ~ "=" ~ String ~  LINE_END}
+CloseFanTheFirstXLayers = {";" ~ "close_fan_the_first_x_layers" ~ "=" ~ Number ~  LINE_END}
+CompletePrintExhaustFanSpeed = {";" ~ "complete_print_exhaust_fan_speed" ~ "=" ~ Number ~  LINE_END}
+CoolPlateTemp = {";" ~ "cool_plate_temp" ~ "=" ~ Number ~  LINE_END}
+CoolPlateTempInitialLayer = {";" ~ "cool_plate_temp_initial_layer" ~ "=" ~ Number ~  LINE_END}
+CoolingTubeLength = {";" ~ "cooling_tube_length" ~ "=" ~ Number ~  LINE_END}
+CoolingTubeRetraction = {";" ~ "cooling_tube_retraction" ~ "=" ~ Number ~  LINE_END}
+CounterboreHoleBridging = {";" ~ "counterbore_hole_bridging" ~ "=" ~ String ~  LINE_END}
+CurrBedType = {";" ~ "curr_bed_type" ~ "=" ~ String ~  LINE_END}
+DefaultAcceleration = {";" ~ "default_acceleration" ~ "=" ~ Number ~  LINE_END}
+DefaultFilamentColour = {";" ~ "default_filament_colour" ~ "=" ~ String ~  LINE_END}
+DefaultFilamentProfile = {";" ~ "default_filament_profile" ~ "=" ~ String ~  LINE_END}
+DefaultJerk = {";" ~ "default_jerk" ~ "=" ~ Number ~  LINE_END}
+DefaultPrintProfile = {";" ~ "default_print_profile" ~ "=" ~ String ~  LINE_END}
+DeretractionSpeed = {";" ~ "deretraction_speed" ~ "=" ~ Number ~  LINE_END}
+DetectNarrowInternalSolidInfill = {";" ~ "detect_narrow_internal_solid_infill" ~ "=" ~ Number ~  LINE_END}
+DetectOverhangWall = {";" ~ "detect_overhang_wall" ~ "=" ~ Number ~  LINE_END}
+DetectThinWall = {";" ~ "detect_thin_wall" ~ "=" ~ Number ~  LINE_END}
+DisableM73 = {";" ~ "disable_m73" ~ "=" ~ Number ~  LINE_END}
+DontFilterInternalBridges = {";" ~ "dont_filter_internal_bridges" ~ "=" ~ String ~  LINE_END}
+DontSlowDownOuterWall = {";" ~ "dont_slow_down_outer_wall" ~ "=" ~ Number ~  LINE_END}
+DraftShield = {";" ~ "draft_shield" ~ "=" ~ String ~  LINE_END}
+DuringPrintExhaustFanSpeed = {";" ~ "during_print_exhaust_fan_speed" ~ "=" ~ Number ~  LINE_END}
+ElefantFootCompensation = {";" ~ "elefant_foot_compensation" ~ "=" ~ Number ~  LINE_END}
+ElefantFootCompensationLayers = {";" ~ "elefant_foot_compensation_layers" ~ "=" ~ Number ~  LINE_END}
+EmitMachineLimitsToGcode = {";" ~ "emit_machine_limits_to_gcode" ~ "=" ~ Number ~  LINE_END}
+EnableArcFitting = {";" ~ "enable_arc_fitting" ~ "=" ~ Number ~  LINE_END}
+EnableFilamentRamming = {";" ~ "enable_filament_ramming" ~ "=" ~ Number ~  LINE_END}
+EnableLongRetractionWhenCut = {";" ~ "enable_long_retraction_when_cut" ~ "=" ~ Number ~  LINE_END}
+EnableOverhangBridgeFan = {";" ~ "enable_overhang_bridge_fan" ~ "=" ~ Number ~  LINE_END}
+EnableOverhangSpeed = {";" ~ "enable_overhang_speed" ~ "=" ~ Number ~  LINE_END}
+EnablePressureAdvance = {";" ~ "enable_pressure_advance" ~ "=" ~ Number ~  LINE_END}
+EnablePrimeTower = {";" ~ "enable_prime_tower" ~ "=" ~ Number ~  LINE_END}
+EnableSupport = {";" ~ "enable_support" ~ "=" ~ Number ~  LINE_END}
+EnforceSupportLayers = {";" ~ "enforce_support_layers" ~ "=" ~ Number ~  LINE_END}
+EngPlateTemp = {";" ~ "eng_plate_temp" ~ "=" ~ Number ~  LINE_END}
+EngPlateTempInitialLayer = {";" ~ "eng_plate_temp_initial_layer" ~ "=" ~ Number ~  LINE_END}
+EnsureVerticalShellThickness = {";" ~ "ensure_vertical_shell_thickness" ~ "=" ~ String ~  LINE_END}
+ExcludeObject = {";" ~ "exclude_object" ~ "=" ~ Number ~  LINE_END}
+ExtraLoadingMove = {";" ~ "extra_loading_move" ~ "=" ~ Number ~  LINE_END}
+ExtraPerimetersOnOverhangs = {";" ~ "extra_perimeters_on_overhangs" ~ "=" ~ Number ~  LINE_END}
+ExtruderClearanceHeightToLid = {";" ~ "extruder_clearance_height_to_lid" ~ "=" ~ Number ~  LINE_END}
+ExtruderClearanceHeightToRod = {";" ~ "extruder_clearance_height_to_rod" ~ "=" ~ Number ~  LINE_END}
+ExtruderClearanceRadius = {";" ~ "extruder_clearance_radius" ~ "=" ~ Number ~  LINE_END}
+ExtruderColour = {";" ~ "extruder_colour" ~ "=" ~ String ~  LINE_END}
+ExtruderOffset = {";" ~ "extruder_offset" ~ "=" ~ Number ~ "x" ~ Number ~  LINE_END}
+FanCoolingLayerTime = {";" ~ "fan_cooling_layer_time" ~ "=" ~ Number ~  LINE_END}
+FanKickstart = {";" ~ "fan_kickstart" ~ "=" ~ Number ~  LINE_END}
+FanMaxSpeed = {";" ~ "fan_max_speed" ~ "=" ~ Number ~  LINE_END}
+FanMinSpeed = {";" ~ "fan_min_speed" ~ "=" ~ Number ~  LINE_END}
+FanSpeedupOverhangs = {";" ~ "fan_speedup_overhangs" ~ "=" ~ Number ~  LINE_END}
+FanSpeedupTime = {";" ~ "fan_speedup_time" ~ "=" ~ Number ~  LINE_END}
+FilamentColour = {";" ~ "filament_colour" ~ "=" ~ String ~  LINE_END}
+FilamentCoolingFinalSpeed = {";" ~ "filament_cooling_final_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentCoolingInitialSpeed = {";" ~ "filament_cooling_initial_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentCoolingMoves = {";" ~ "filament_cooling_moves" ~ "=" ~ Number ~  LINE_END}
+//FilamentCost = {";" ~ "filament_cost" ~ "=" ~ Number ~  LINE_END}
+FilamentDensity = {";" ~ "filament_density" ~ "=" ~ Number ~  LINE_END}
+FilamentDiameter = {";" ~ "filament_diameter" ~ "=" ~ Number ~  LINE_END}
+FilamentEndGcode = {";" ~ "filament_end_gcode" ~ "=" ~ String ~  LINE_END}
+FilamentFlowRatio = {";" ~ "filament_flow_ratio" ~ "=" ~ Number ~  LINE_END}
+FilamentIds = {";" ~ "filament_ids" ~ "=" ~ String ~  LINE_END}
+FilamentIsSupport = {";" ~ "filament_is_support" ~ "=" ~ Number ~  LINE_END}
+FilamentLoadingSpeed = {";" ~ "filament_loading_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentLoadingSpeedStart = {";" ~ "filament_loading_speed_start" ~ "=" ~ Number ~  LINE_END}
+FilamentMaxVolumetricSpeed = {";" ~ "filament_max_volumetric_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentMinimalPurgeOnWipeTower = {";" ~ "filament_minimal_purge_on_wipe_tower" ~ "=" ~ Number ~  LINE_END}
+FilamentMultitoolRamming = {";" ~ "filament_multitool_ramming" ~ "=" ~ Number ~  LINE_END}
+FilamentMultitoolRammingFlow = {";" ~ "filament_multitool_ramming_flow" ~ "=" ~ Number ~  LINE_END}
+FilamentMultitoolRammingVolume = {";" ~ "filament_multitool_ramming_volume" ~ "=" ~ Number ~  LINE_END}
+FilamentNotes = {";" ~ "filament_notes" ~ "=" ~ String ~  LINE_END}
+FilamentRammingParameters = {";" ~ "filament_ramming_parameters" ~ "=" ~ String ~  LINE_END}
+FilamentSettingsId = {";" ~ "filament_settings_id" ~ "=" ~ String ~  LINE_END}
+FilamentShrink = {";" ~ "filament_shrink" ~ "=" ~ Percentage ~  LINE_END}
+FilamentShrinkageCompensationZ = {";" ~ "filament_shrinkage_compensation_z" ~ "=" ~ Percentage ~  LINE_END}
+FilamentSoluble = {";" ~ "filament_soluble" ~ "=" ~ Number ~  LINE_END}
+FilamentStampingDistance = {";" ~ "filament_stamping_distance" ~ "=" ~ Number ~  LINE_END}
+FilamentStampingLoadingSpeed = {";" ~ "filament_stamping_loading_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentStartGcode = {";" ~ "filament_start_gcode" ~ "=" ~ String ~  LINE_END}
+FilamentToolchangeDelay = {";" ~ "filament_toolchange_delay" ~ "=" ~ Number ~  LINE_END}
+FilamentType = {";" ~ "filament_type" ~ "=" ~ String ~  LINE_END}
+FilamentUnloadingSpeed = {";" ~ "filament_unloading_speed" ~ "=" ~ Number ~  LINE_END}
+FilamentUnloadingSpeedStart = {";" ~ "filament_unloading_speed_start" ~ "=" ~ Number ~  LINE_END}
+FilamentVendor = {";" ~ "filament_vendor" ~ "=" ~ String ~  LINE_END}
+FilenameFormat = {";" ~ "filename_format" ~ "=" ~ String ~  LINE_END}
+FilterOutGapFill = {";" ~ "filter_out_gap_fill" ~ "=" ~ Number ~  LINE_END}
+FirstLayerPrintSequence = {";" ~ "first_layer_print_sequence" ~ "=" ~ Number ~  LINE_END}
+FlushIntoInfill = {";" ~ "flush_into_infill" ~ "=" ~ Number ~  LINE_END}
+FlushIntoObjects = {";" ~ "flush_into_objects" ~ "=" ~ Number ~  LINE_END}
+FlushIntoSupport = {";" ~ "flush_into_support" ~ "=" ~ Number ~  LINE_END}
+FlushMultiplier = {";" ~ "flush_multiplier" ~ "=" ~ Number ~  LINE_END}
+FlushVolumesMatrix = {";" ~ "flush_volumes_matrix" ~ "=" ~ Number ~  LINE_END}
+FlushVolumesVector = {";" ~ "flush_volumes_vector" ~ "=" ~ (Number ~ ("," ~ Number)*)? ~  LINE_END}
+FullFanSpeedLayer = {";" ~ "full_fan_speed_layer" ~ "=" ~ Number ~  LINE_END}
+FuzzySkin = {";" ~ "fuzzy_skin" ~ "=" ~ String ~  LINE_END}
+FuzzySkinFirstLayer = {";" ~ "fuzzy_skin_first_layer" ~ "=" ~ Number ~  LINE_END}
+FuzzySkinPointDistance = {";" ~ "fuzzy_skin_point_distance" ~ "=" ~ Number ~  LINE_END}
+FuzzySkinThickness = {";" ~ "fuzzy_skin_thickness" ~ "=" ~ Number ~  LINE_END}
+GapFillTarget = {";" ~ "gap_fill_target" ~ "=" ~ String ~  LINE_END}
+GapInfillSpeed = {";" ~ "gap_infill_speed" ~ "=" ~ Number ~  LINE_END}
+GcodeAddLineNumber = {";" ~ "gcode_add_line_number" ~ "=" ~ Number ~  LINE_END}
+GcodeComments = {";" ~ "gcode_comments" ~ "=" ~ Number ~  LINE_END}
+GcodeFlavor = {";" ~ "gcode_flavor" ~ "=" ~ String ~  LINE_END}
+GcodeLabelObjects = {";" ~ "gcode_label_objects" ~ "=" ~ Number ~  LINE_END}
+HasScarfJointSeam = {";" ~ "has_scarf_joint_seam" ~ "=" ~ Number ~  LINE_END}
+HeadWrapDetectZone = {";" ~ "head_wrap_detect_zone" ~ "=" ~ String ~  LINE_END}
+HighCurrentOnFilamentSwap = {";" ~ "high_current_on_filament_swap" ~ "=" ~ Number ~  LINE_END}
+HoleToPolyhole = {";" ~ "hole_to_polyhole" ~ "=" ~ Number ~  LINE_END}
+HoleToPolyholeThreshold = {";" ~ "hole_to_polyhole_threshold" ~ "=" ~ Number ~  LINE_END}
+HoleToPolyholeTwisted = {";" ~ "hole_to_polyhole_twisted" ~ "=" ~ Number ~  LINE_END}
+HostType = {";" ~ "host_type" ~ "=" ~ String ~  LINE_END}
+HotPlateTemp = {";" ~ "hot_plate_temp" ~ "=" ~ Number ~  LINE_END}
+HotPlateTempInitialLayer = {";" ~ "hot_plate_temp_initial_layer" ~ "=" ~ Number ~  LINE_END}
+IdleTemperature = {";" ~ "idle_temperature" ~ "=" ~ Number ~  LINE_END}
+IndependentSupportLayerHeight = {";" ~ "independent_support_layer_height" ~ "=" ~ Number ~  LINE_END}
+InfillAnchor = {";" ~ "infill_anchor" ~ "=" ~ Percentage ~  LINE_END}
+InfillAnchorMax = {";" ~ "infill_anchor_max" ~ "=" ~ Number ~  LINE_END}
+InfillCombination = {";" ~ "infill_combination" ~ "=" ~ Number ~  LINE_END}
+InfillCombinationMaxLayerHeight = {";" ~ "infill_combination_max_layer_height" ~ "=" ~ Percentage ~  LINE_END}
+InfillDirection = {";" ~ "infill_direction" ~ "=" ~ Number ~  LINE_END}
+InfillJerk = {";" ~ "infill_jerk" ~ "=" ~ Number ~  LINE_END}
+InfillWallOverlap = {";" ~ "infill_wall_overlap" ~ "=" ~ Percentage ~  LINE_END}
+InitialLayerAcceleration = {";" ~ "initial_layer_acceleration" ~ "=" ~ Number ~  LINE_END}
+InitialLayerInfillSpeed = {";" ~ "initial_layer_infill_speed" ~ "=" ~ Number ~  LINE_END}
+InitialLayerJerk = {";" ~ "initial_layer_jerk" ~ "=" ~ Number ~  LINE_END}
+InitialLayerLineWidth = {";" ~ "initial_layer_line_width" ~ "=" ~ Number ~  LINE_END}
+InitialLayerMinBeadWidth = {";" ~ "initial_layer_min_bead_width" ~ "=" ~ Percentage ~  LINE_END}
+InitialLayerPrintHeight = {";" ~ "initial_layer_print_height" ~ "=" ~ Number ~  LINE_END}
+InitialLayerSpeed = {";" ~ "initial_layer_speed" ~ "=" ~ Number ~  LINE_END}
+InitialLayerTravelSpeed = {";" ~ "initial_layer_travel_speed" ~ "=" ~ Percentage ~  LINE_END}
+InnerWallAcceleration = {";" ~ "inner_wall_acceleration" ~ "=" ~ Number ~  LINE_END}
+InnerWallJerk = {";" ~ "inner_wall_jerk" ~ "=" ~ Number ~  LINE_END}
+InnerWallLineWidth = {";" ~ "inner_wall_line_width" ~ "=" ~ Number ~  LINE_END}
+InnerWallSpeed = {";" ~ "inner_wall_speed" ~ "=" ~ Number ~  LINE_END}
+InterfaceShells = {";" ~ "interface_shells" ~ "=" ~ Number ~  LINE_END}
+InterlockingBeam = {";" ~ "interlocking_beam" ~ "=" ~ Number ~  LINE_END}
+InterlockingBeamLayerCount = {";" ~ "interlocking_beam_layer_count" ~ "=" ~ Number ~  LINE_END}
+InterlockingBeamWidth = {";" ~ "interlocking_beam_width" ~ "=" ~ Number ~  LINE_END}
+InterlockingBoundaryAvoidance = {";" ~ "interlocking_boundary_avoidance" ~ "=" ~ Number ~  LINE_END}
+InterlockingDepth = {";" ~ "interlocking_depth" ~ "=" ~ Number ~  LINE_END}
+InterlockingOrientation = {";" ~ "interlocking_orientation" ~ "=" ~ Number ~  LINE_END}
+InternalBridgeFlow = {";" ~ "internal_bridge_flow" ~ "=" ~ Number ~  LINE_END}
+InternalBridgeSpeed = {";" ~ "internal_bridge_speed" ~ "=" ~ Number ~  LINE_END}
+InternalSolidInfillAcceleration = {";" ~ "internal_solid_infill_acceleration" ~ "=" ~ Percentage ~  LINE_END}
+InternalSolidInfillLineWidth = {";" ~ "internal_solid_infill_line_width" ~ "=" ~ Number ~  LINE_END}
+InternalSolidInfillPattern = {";" ~ "internal_solid_infill_pattern" ~ "=" ~ String ~  LINE_END}
+InternalSolidInfillSpeed = {";" ~ "internal_solid_infill_speed" ~ "=" ~ Number ~  LINE_END}
+IroningAngle = {";" ~ "ironing_angle" ~ "=" ~ Number ~  LINE_END}
+IroningFlow = {";" ~ "ironing_flow" ~ "=" ~ Percentage ~  LINE_END}
+IroningPattern = {";" ~ "ironing_pattern" ~ "=" ~ String ~  LINE_END}
+IroningSpacing = {";" ~ "ironing_spacing" ~ "=" ~ Number ~  LINE_END}
+IroningSpeed = {";" ~ "ironing_speed" ~ "=" ~ Number ~  LINE_END}
+IroningType = {";" ~ "ironing_type" ~ "=" ~ String ~  LINE_END}
+IsInfillFirst = {";" ~ "is_infill_first" ~ "=" ~ Number ~  LINE_END}
+LayerChangeGcode = {";" ~ "layer_change_gcode" ~ "=" ~ String ~  LINE_END}
+LayerHeight = {";" ~ "layer_height" ~ "=" ~ Number ~  LINE_END}
+LineWidth = {";" ~ "line_width" ~ "=" ~ Number ~  LINE_END}
+LongRetractionsWhenCut = {";" ~ "long_retractions_when_cut" ~ "=" ~ Number ~  LINE_END}
+MachineEndGcode = {";" ~ "machine_end_gcode" ~ "=" ~ String ~  LINE_END}
+MachineLoadFilamentTime = {";" ~ "machine_load_filament_time" ~ "=" ~ Number ~  LINE_END}
+MachineMaxAccelerationE = {";" ~ "machine_max_acceleration_e" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationExtruding = {";" ~ "machine_max_acceleration_extruding" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationRetracting = {";" ~ "machine_max_acceleration_retracting" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationTravel = {";" ~ "machine_max_acceleration_travel" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationX = {";" ~ "machine_max_acceleration_x" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationY = {";" ~ "machine_max_acceleration_y" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxAccelerationZ = {";" ~ "machine_max_acceleration_z" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxJerkE = {";" ~ "machine_max_jerk_e" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxJerkX = {";" ~ "machine_max_jerk_x" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxJerkY = {";" ~ "machine_max_jerk_y" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxJerkZ = {";" ~ "machine_max_jerk_z" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxSpeedE = {";" ~ "machine_max_speed_e" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxSpeedX = {";" ~ "machine_max_speed_x" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxSpeedY = {";" ~ "machine_max_speed_y" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMaxSpeedZ = {";" ~ "machine_max_speed_z" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMinExtrudingRate = {";" ~ "machine_min_extruding_rate" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachineMinTravelRate = {";" ~ "machine_min_travel_rate" ~ "=" ~ Number ~ "," ~ Number ~  LINE_END}
+MachinePauseGcode = {";" ~ "machine_pause_gcode" ~ "=" ~ String ~  LINE_END}
+MachineStartGcode = {";" ~ "machine_start_gcode" ~ "=" ~ String ~  LINE_END}
+MachineToolChangeTime = {";" ~ "machine_tool_change_time" ~ "=" ~ Number ~  LINE_END}
+MachineUnloadFilamentTime = {";" ~ "machine_unload_filament_time" ~ "=" ~ Number ~  LINE_END}
+MakeOverhangPrintable = {";" ~ "make_overhang_printable" ~ "=" ~ Number ~  LINE_END}
+MakeOverhangPrintableAngle = {";" ~ "make_overhang_printable_angle" ~ "=" ~ Number ~  LINE_END}
+MakeOverhangPrintableHoleSize = {";" ~ "make_overhang_printable_hole_size" ~ "=" ~ Number ~  LINE_END}
+ManualFilamentChange = {";" ~ "manual_filament_change" ~ "=" ~ Number ~  LINE_END}
+MaxBridgeLength = {";" ~ "max_bridge_length" ~ "=" ~ Number ~  LINE_END}
+MaxLayerHeight = {";" ~ "max_layer_height" ~ "=" ~ Number ~  LINE_END}
+MaxTravelDetourDistance = {";" ~ "max_travel_detour_distance" ~ "=" ~ Number ~  LINE_END}
+MaxVolumetricExtrusionRateSlope = {";" ~ "max_volumetric_extrusion_rate_slope" ~ "=" ~ Number ~  LINE_END}
+MaxVolumetricExtrusionRateSlopeSegmentLength = {";" ~ "max_volumetric_extrusion_rate_slope_segment_length" ~ "=" ~ Number ~  LINE_END}
+MinBeadWidth = {";" ~ "min_bead_width" ~ "=" ~ Percentage ~  LINE_END}
+MinFeatureSize = {";" ~ "min_feature_size" ~ "=" ~ Percentage ~  LINE_END}
+MinLayerHeight = {";" ~ "min_layer_height" ~ "=" ~ Number ~  LINE_END}
+MinLengthFactor = {";" ~ "min_length_factor" ~ "=" ~ Number ~  LINE_END}
+MinSkirtLength = {";" ~ "min_skirt_length" ~ "=" ~ Number ~  LINE_END}
+MinWidthTopSurface = {";" ~ "min_width_top_surface" ~ "=" ~ Percentage ~  LINE_END}
+MinimumSparseInfillArea = {";" ~ "minimum_sparse_infill_area" ~ "=" ~ Number ~  LINE_END}
+MmuSegmentedRegionInterlockingDepth = {";" ~ "mmu_segmented_region_interlocking_depth" ~ "=" ~ Number ~  LINE_END}
+MmuSegmentedRegionMaxWidth = {";" ~ "mmu_segmented_region_max_width" ~ "=" ~ Number ~  LINE_END}
+Notes = {";" ~ "notes" ~ "=" ~ String ~  LINE_END}
+NozzleDiameter = {";" ~ "nozzle_diameter" ~ "=" ~ Number ~  LINE_END}
+NozzleHeight = {";" ~ "nozzle_height" ~ "=" ~ Number ~  LINE_END}
+NozzleHrc = {";" ~ "nozzle_hrc" ~ "=" ~ Number ~  LINE_END}
+NozzleTemperature = {";" ~ "nozzle_temperature" ~ "=" ~ Number ~  LINE_END}
+NozzleTemperatureInitialLayer = {";" ~ "nozzle_temperature_initial_layer" ~ "=" ~ Number ~  LINE_END}
+NozzleTemperatureRangeHigh = {";" ~ "nozzle_temperature_range_high" ~ "=" ~ Number ~  LINE_END}
+NozzleTemperatureRangeLow = {";" ~ "nozzle_temperature_range_low" ~ "=" ~ Number ~  LINE_END}
+NozzleType = {";" ~ "nozzle_type" ~ "=" ~ String ~  LINE_END}
+NozzleVolume = {";" ~ "nozzle_volume" ~ "=" ~ Number ~  LINE_END}
+OnlyOneWallFirstLayer = {";" ~ "only_one_wall_first_layer" ~ "=" ~ Number ~  LINE_END}
+OnlyOneWallTop = {";" ~ "only_one_wall_top" ~ "=" ~ Number ~  LINE_END}
+OozePrevention = {";" ~ "ooze_prevention" ~ "=" ~ Number ~  LINE_END}
+OtherLayersPrintSequence = {";" ~ "other_layers_print_sequence" ~ "=" ~ Number ~  LINE_END}
+OtherLayersPrintSequenceNums = {";" ~ "other_layers_print_sequence_nums" ~ "=" ~ Number ~  LINE_END}
+OuterWallAcceleration = {";" ~ "outer_wall_acceleration" ~ "=" ~ Number ~  LINE_END}
+OuterWallJerk = {";" ~ "outer_wall_jerk" ~ "=" ~ Number ~  LINE_END}
+OuterWallLineWidth = {";" ~ "outer_wall_line_width" ~ "=" ~ Number ~  LINE_END}
+OuterWallSpeed = {";" ~ "outer_wall_speed" ~ "=" ~ Number ~  LINE_END}
+Overhang14Speed = {";" ~ "overhang_1_4_speed" ~ "=" ~ Percentage ~  LINE_END}
+Overhang24Speed = {";" ~ "overhang_2_4_speed" ~ "=" ~ Number ~  LINE_END}
+Overhang34Speed = {";" ~ "overhang_3_4_speed" ~ "=" ~ Number ~  LINE_END}
+Overhang44Speed = {";" ~ "overhang_4_4_speed" ~ "=" ~ Number ~  LINE_END}
+OverhangFanSpeed = {";" ~ "overhang_fan_speed" ~ "=" ~ Number ~  LINE_END}
+OverhangFanThreshold = {";" ~ "overhang_fan_threshold" ~ "=" ~ Percentage ~  LINE_END}
+OverhangReverse = {";" ~ "overhang_reverse" ~ "=" ~ Number ~  LINE_END}
+OverhangReverseInternalOnly = {";" ~ "overhang_reverse_internal_only" ~ "=" ~ Number ~  LINE_END}
+OverhangReverseThreshold = {";" ~ "overhang_reverse_threshold" ~ "=" ~ Percentage ~  LINE_END}
+OverhangSpeedClassic = {";" ~ "overhang_speed_classic" ~ "=" ~ Number ~  LINE_END}
+ParkingPosRetraction = {";" ~ "parking_pos_retraction" ~ "=" ~ Number ~  LINE_END}
+PelletFlowCoefficient = {";" ~ "pellet_flow_coefficient" ~ "=" ~ Number ~  LINE_END}
+PelletModdedPrinter = {";" ~ "pellet_modded_printer" ~ "=" ~ Number ~  LINE_END}
+PostProcess = {";" ~ "post_process" ~ "=" ~ String ~  LINE_END}
+PreciseOuterWall = {";" ~ "precise_outer_wall" ~ "=" ~ Number ~  LINE_END}
+PreciseZHeight = {";" ~ "precise_z_height" ~ "=" ~ Number ~  LINE_END}
+PreferredOrientation = {";" ~ "preferred_orientation" ~ "=" ~ Number ~  LINE_END}
+PreheatSteps = {";" ~ "preheat_steps" ~ "=" ~ Number ~  LINE_END}
+PreheatTime = {";" ~ "preheat_time" ~ "=" ~ Number ~  LINE_END}
+PressureAdvance = {";" ~ "pressure_advance" ~ "=" ~ Number ~  LINE_END}
+PrimeTowerBrimWidth = {";" ~ "prime_tower_brim_width" ~ "=" ~ Number ~  LINE_END}
+PrimeTowerWidth = {";" ~ "prime_tower_width" ~ "=" ~ Number ~  LINE_END}
+PrimeVolume = {";" ~ "prime_volume" ~ "=" ~ Number ~  LINE_END}
+PrintCompatiblePrinters = {";" ~ "print_compatible_printers" ~ "=" ~ (String ~ (";" ~ String)*)? ~  LINE_END}
+PrintFlowRatio = {";" ~ "print_flow_ratio" ~ "=" ~ Number ~  LINE_END}
+PrintOrder = {";" ~ "print_order" ~ "=" ~ String ~  LINE_END}
+PrintSequence = {";" ~ "print_sequence" ~ "=" ~ String ~  LINE_END}
+PrintSettingsId = {";" ~ "print_settings_id" ~ "=" ~ String ~  LINE_END}
+PrintableArea = {";" ~ "printable_area" ~ "=" ~ (Number ~ "x" ~ Number ~ ("," ~ Number ~ "x" ~ Number)*)? ~  LINE_END}
+PrintableHeight = {";" ~ "printable_height" ~ "=" ~ Number ~  LINE_END}
+PrinterModel = {";" ~ "printer_model" ~ "=" ~ String ~  LINE_END}
+PrinterNotes = {";" ~ "printer_notes" ~ "=" ~ String ~  LINE_END}
+PrinterSettingsId = {";" ~ "printer_settings_id" ~ "=" ~ String ~  LINE_END}
+PrinterStructure = {";" ~ "printer_structure" ~ "=" ~ String ~  LINE_END}
+PrinterTechnology = {";" ~ "printer_technology" ~ "=" ~ String ~  LINE_END}
+PrinterVariant = {";" ~ "printer_variant" ~ "=" ~ Number ~  LINE_END}
+PrinthostAuthorizationType = {";" ~ "printhost_authorization_type" ~ "=" ~ String ~  LINE_END}
+PrinthostSslIgnoreRevoke = {";" ~ "printhost_ssl_ignore_revoke" ~ "=" ~ Number ~  LINE_END}
+PrintingByObjectGcode = {";" ~ "printing_by_object_gcode" ~ "=" ~ String ~  LINE_END}
+PurgeInPrimeTower = {";" ~ "purge_in_prime_tower" ~ "=" ~ Number ~  LINE_END}
+RaftContactDistance = {";" ~ "raft_contact_distance" ~ "=" ~ Number ~  LINE_END}
+RaftExpansion = {";" ~ "raft_expansion" ~ "=" ~ Number ~  LINE_END}
+RaftFirstLayerDensity = {";" ~ "raft_first_layer_density" ~ "=" ~ Percentage ~  LINE_END}
+RaftFirstLayerExpansion = {";" ~ "raft_first_layer_expansion" ~ "=" ~ Number ~  LINE_END}
+RaftLayers = {";" ~ "raft_layers" ~ "=" ~ Number ~  LINE_END}
+ReduceCrossingWall = {";" ~ "reduce_crossing_wall" ~ "=" ~ Number ~  LINE_END}
+ReduceFanStopStartFreq = {";" ~ "reduce_fan_stop_start_freq" ~ "=" ~ Number ~  LINE_END}
+ReduceInfillRetraction = {";" ~ "reduce_infill_retraction" ~ "=" ~ Number ~  LINE_END}
+RequiredNozzleHrc = {";" ~ "required_nozzle_HRC" ~ "=" ~ Number ~  LINE_END}
+Resolution = {";" ~ "resolution" ~ "=" ~ Number ~  LINE_END}
+RetractBeforeWipe = {";" ~ "retract_before_wipe" ~ "=" ~ Percentage ~  LINE_END}
+RetractLengthToolchange = {";" ~ "retract_length_toolchange" ~ "=" ~ Number ~  LINE_END}
+RetractLiftAbove = {";" ~ "retract_lift_above" ~ "=" ~ Number ~  LINE_END}
+RetractLiftBelow = {";" ~ "retract_lift_below" ~ "=" ~ Number ~  LINE_END}
+RetractLiftEnforce = {";" ~ "retract_lift_enforce" ~ "=" ~ String ~  LINE_END}
+RetractRestartExtra = {";" ~ "retract_restart_extra" ~ "=" ~ Number ~  LINE_END}
+RetractRestartExtraToolchange = {";" ~ "retract_restart_extra_toolchange" ~ "=" ~ Number ~  LINE_END}
+RetractWhenChangingLayer = {";" ~ "retract_when_changing_layer" ~ "=" ~ Number ~  LINE_END}
+RetractionDistancesWhenCut = {";" ~ "retraction_distances_when_cut" ~ "=" ~ Number ~  LINE_END}
+RetractionLength = {";" ~ "retraction_length" ~ "=" ~ Number ~  LINE_END}
+RetractionMinimumTravel = {";" ~ "retraction_minimum_travel" ~ "=" ~ Number ~  LINE_END}
+RetractionSpeed = {";" ~ "retraction_speed" ~ "=" ~ Number ~  LINE_END}
+RoleBasedWipeSpeed = {";" ~ "role_based_wipe_speed" ~ "=" ~ Number ~  LINE_END}
+RotateSolidInfillDirection = {";" ~ "rotate_solid_infill_direction" ~ "=" ~ Number ~  LINE_END}
+ScanFirstLayer = {";" ~ "scan_first_layer" ~ "=" ~ Number ~  LINE_END}
+ScarfAngleThreshold = {";" ~ "scarf_angle_threshold" ~ "=" ~ Number ~  LINE_END}
+ScarfJointFlowRatio = {";" ~ "scarf_joint_flow_ratio" ~ "=" ~ Number ~  LINE_END}
+ScarfJointSpeed = {";" ~ "scarf_joint_speed" ~ "=" ~ Percentage ~  LINE_END}
+ScarfOverhangThreshold = {";" ~ "scarf_overhang_threshold" ~ "=" ~ Percentage ~  LINE_END}
+SeamGap = {";" ~ "seam_gap" ~ "=" ~ Percentage ~  LINE_END}
+SeamPosition = {";" ~ "seam_position" ~ "=" ~ String ~  LINE_END}
+SeamSlopeConditional = {";" ~ "seam_slope_conditional" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeEntireLoop = {";" ~ "seam_slope_entire_loop" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeInnerWalls = {";" ~ "seam_slope_inner_walls" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeMinLength = {";" ~ "seam_slope_min_length" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeStartHeight = {";" ~ "seam_slope_start_height" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeSteps = {";" ~ "seam_slope_steps" ~ "=" ~ Number ~  LINE_END}
+SeamSlopeType = {";" ~ "seam_slope_type" ~ "=" ~ String ~  LINE_END}
+SilentMode = {";" ~ "silent_mode" ~ "=" ~ Number ~  LINE_END}
+SingleExtruderMultiMaterial = {";" ~ "single_extruder_multi_material" ~ "=" ~ Number ~  LINE_END}
+SingleExtruderMultiMaterialPriming = {";" ~ "single_extruder_multi_material_priming" ~ "=" ~ Number ~  LINE_END}
+SkirtDistance = {";" ~ "skirt_distance" ~ "=" ~ Number ~  LINE_END}
+SkirtHeight = {";" ~ "skirt_height" ~ "=" ~ Number ~  LINE_END}
+SkirtLoops = {";" ~ "skirt_loops" ~ "=" ~ Number ~  LINE_END}
+SkirtSpeed = {";" ~ "skirt_speed" ~ "=" ~ Number ~  LINE_END}
+SkirtStartAngle = {";" ~ "skirt_start_angle" ~ "=" ~ Number ~  LINE_END}
+SkirtType = {";" ~ "skirt_type" ~ "=" ~ String ~  LINE_END}
+SliceClosingRadius = {";" ~ "slice_closing_radius" ~ "=" ~ Number ~  LINE_END}
+SlicingMode = {";" ~ "slicing_mode" ~ "=" ~ String ~  LINE_END}
+SlowDownForLayerCooling = {";" ~ "slow_down_for_layer_cooling" ~ "=" ~ Number ~  LINE_END}
+SlowDownLayerTime = {";" ~ "slow_down_layer_time" ~ "=" ~ Number ~  LINE_END}
+SlowDownLayers = {";" ~ "slow_down_layers" ~ "=" ~ Number ~  LINE_END}
+SlowDownMinSpeed = {";" ~ "slow_down_min_speed" ~ "=" ~ Number ~  LINE_END}
+SlowdownForCurledPerimeters = {";" ~ "slowdown_for_curled_perimeters" ~ "=" ~ Number ~  LINE_END}
+SmallPerimeterSpeed = {";" ~ "small_perimeter_speed" ~ "=" ~ Percentage ~  LINE_END}
+SmallPerimeterThreshold = {";" ~ "small_perimeter_threshold" ~ "=" ~ Number ~  LINE_END}
+SolidInfillDirection = {";" ~ "solid_infill_direction" ~ "=" ~ Number ~  LINE_END}
+SolidInfillFilament = {";" ~ "solid_infill_filament" ~ "=" ~ Number ~  LINE_END}
+SparseInfillAcceleration = {";" ~ "sparse_infill_acceleration" ~ "=" ~ Percentage ~  LINE_END}
+SparseInfillDensity = {";" ~ "sparse_infill_density" ~ "=" ~ Percentage ~  LINE_END}
+SparseInfillFilament = {";" ~ "sparse_infill_filament" ~ "=" ~ Number ~  LINE_END}
+SparseInfillLineWidth = {";" ~ "sparse_infill_line_width" ~ "=" ~ Number ~  LINE_END}
+SparseInfillPattern = {";" ~ "sparse_infill_pattern" ~ "=" ~ String ~  LINE_END}
+SparseInfillSpeed = {";" ~ "sparse_infill_speed" ~ "=" ~ Number ~  LINE_END}
+SpiralMode = {";" ~ "spiral_mode" ~ "=" ~ Number ~  LINE_END}
+SpiralModeMaxXySmoothing = {";" ~ "spiral_mode_max_xy_smoothing" ~ "=" ~ Percentage ~  LINE_END}
+SpiralModeSmooth = {";" ~ "spiral_mode_smooth" ~ "=" ~ Number ~  LINE_END}
+StaggeredInnerSeams = {";" ~ "staggered_inner_seams" ~ "=" ~ Number ~  LINE_END}
+StandbyTemperatureDelta = {";" ~ "standby_temperature_delta" ~ "=" ~ Number ~  LINE_END}
+StartEndPoints = {";" ~ "start_end_points" ~ "=" ~ (Number ~ "x" ~ Number ~ ("," ~ Number ~ "x" ~ Number)*)? ~  LINE_END}
+SupportAirFiltration = {";" ~ "support_air_filtration" ~ "=" ~ Number ~  LINE_END}
+SupportAngle = {";" ~ "support_angle" ~ "=" ~ Number ~  LINE_END}
+SupportBasePattern = {";" ~ "support_base_pattern" ~ "=" ~ String ~  LINE_END}
+SupportBasePatternSpacing = {";" ~ "support_base_pattern_spacing" ~ "=" ~ Number ~  LINE_END}
+SupportBottomInterfaceSpacing = {";" ~ "support_bottom_interface_spacing" ~ "=" ~ Number ~  LINE_END}
+SupportBottomZDistance = {";" ~ "support_bottom_z_distance" ~ "=" ~ Number ~  LINE_END}
+SupportChamberTempControl = {";" ~ "support_chamber_temp_control" ~ "=" ~ Number ~  LINE_END}
+SupportCriticalRegionsOnly = {";" ~ "support_critical_regions_only" ~ "=" ~ Number ~  LINE_END}
+SupportExpansion = {";" ~ "support_expansion" ~ "=" ~ Number ~  LINE_END}
+SupportFilament = {";" ~ "support_filament" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceBottomLayers = {";" ~ "support_interface_bottom_layers" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceFilament = {";" ~ "support_interface_filament" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceLoopPattern = {";" ~ "support_interface_loop_pattern" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceNotForBody = {";" ~ "support_interface_not_for_body" ~ "=" ~ Number ~  LINE_END}
+SupportInterfacePattern = {";" ~ "support_interface_pattern" ~ "=" ~ String ~  LINE_END}
+SupportInterfaceSpacing = {";" ~ "support_interface_spacing" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceSpeed = {";" ~ "support_interface_speed" ~ "=" ~ Number ~  LINE_END}
+SupportInterfaceTopLayers = {";" ~ "support_interface_top_layers" ~ "=" ~ Number ~  LINE_END}
+SupportLineWidth = {";" ~ "support_line_width" ~ "=" ~ Number ~  LINE_END}
+SupportMaterialInterfaceFanSpeed = {";" ~ "support_material_interface_fan_speed" ~ "=" ~ Number ~  LINE_END}
+SupportMultiBedTypes = {";" ~ "support_multi_bed_types" ~ "=" ~ Number ~  LINE_END}
+SupportObjectXyDistance = {";" ~ "support_object_xy_distance" ~ "=" ~ Number ~  LINE_END}
+SupportOnBuildPlateOnly = {";" ~ "support_on_build_plate_only" ~ "=" ~ Number ~  LINE_END}
+SupportRemoveSmallOverhang = {";" ~ "support_remove_small_overhang" ~ "=" ~ Number ~  LINE_END}
+SupportSpeed = {";" ~ "support_speed" ~ "=" ~ Number ~  LINE_END}
+SupportStyle = {";" ~ "support_style" ~ "=" ~ String ~  LINE_END}
+SupportThresholdAngle = {";" ~ "support_threshold_angle" ~ "=" ~ Number ~  LINE_END}
+SupportTopZDistance = {";" ~ "support_top_z_distance" ~ "=" ~ Number ~  LINE_END}
+SupportType = {";" ~ "support_type" ~ "=" ~ String ~  LINE_END}
+TemperatureVitrification = {";" ~ "temperature_vitrification" ~ "=" ~ Number ~  LINE_END}
+TemplateCustomGcode = {";" ~ "template_custom_gcode" ~ "=" ~ String ~  LINE_END}
+TexturedCoolPlateTemp = {";" ~ "textured_cool_plate_temp" ~ "=" ~ Number ~  LINE_END}
+TexturedCoolPlateTempInitialLayer = {";" ~ "textured_cool_plate_temp_initial_layer" ~ "=" ~ Number ~  LINE_END}
+TexturedPlateTemp = {";" ~ "textured_plate_temp" ~ "=" ~ Number ~  LINE_END}
+TexturedPlateTempInitialLayer = {";" ~ "textured_plate_temp_initial_layer" ~ "=" ~ Number ~  LINE_END}
+ThickBridges = {";" ~ "thick_bridges" ~ "=" ~ Number ~  LINE_END}
+ThickInternalBridges = {";" ~ "thick_internal_bridges" ~ "=" ~ Number ~  LINE_END}
+Thumbnails = {";" ~ "thumbnails" ~ "=" ~ String ~  LINE_END}
+ThumbnailsFormat = {";" ~ "thumbnails_format" ~ "=" ~ String ~  LINE_END}
+TimeCost = {";" ~ "time_cost" ~ "=" ~ Number ~  LINE_END}
+TimeLapseGcode = {";" ~ "time_lapse_gcode" ~ "=" ~ String ~  LINE_END}
+TimelapseType = {";" ~ "timelapse_type" ~ "=" ~ Number ~  LINE_END}
+TopBottomInfillWallOverlap = {";" ~ "top_bottom_infill_wall_overlap" ~ "=" ~ Percentage ~  LINE_END}
+TopShellLayers = {";" ~ "top_shell_layers" ~ "=" ~ Number ~  LINE_END}
+TopShellThickness = {";" ~ "top_shell_thickness" ~ "=" ~ Number ~  LINE_END}
+TopSolidInfillFlowRatio = {";" ~ "top_solid_infill_flow_ratio" ~ "=" ~ Number ~  LINE_END}
+TopSurfaceAcceleration = {";" ~ "top_surface_acceleration" ~ "=" ~ Number ~  LINE_END}
+TopSurfaceJerk = {";" ~ "top_surface_jerk" ~ "=" ~ Number ~  LINE_END}
+TopSurfaceLineWidth = {";" ~ "top_surface_line_width" ~ "=" ~ Number ~  LINE_END}
+TopSurfacePattern = {";" ~ "top_surface_pattern" ~ "=" ~ String ~  LINE_END}
+TopSurfaceSpeed = {";" ~ "top_surface_speed" ~ "=" ~ Number ~  LINE_END}
+TravelAcceleration = {";" ~ "travel_acceleration" ~ "=" ~ Number ~  LINE_END}
+TravelJerk = {";" ~ "travel_jerk" ~ "=" ~ Number ~  LINE_END}
+TravelSlope = {";" ~ "travel_slope" ~ "=" ~ Number ~  LINE_END}
+TravelSpeed = {";" ~ "travel_speed" ~ "=" ~ Number ~  LINE_END}
+TravelSpeedZ = {";" ~ "travel_speed_z" ~ "=" ~ Number ~  LINE_END}
+TreeSupportAdaptiveLayerHeight = {";" ~ "tree_support_adaptive_layer_height" ~ "=" ~ Number ~  LINE_END}
+TreeSupportAngleSlow = {";" ~ "tree_support_angle_slow" ~ "=" ~ Number ~  LINE_END}
+TreeSupportAutoBrim = {";" ~ "tree_support_auto_brim" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchAngle = {";" ~ "tree_support_branch_angle" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchAngleOrganic = {";" ~ "tree_support_branch_angle_organic" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDiameter = {";" ~ "tree_support_branch_diameter" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDiameterAngle = {";" ~ "tree_support_branch_diameter_angle" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDiameterDoubleWall = {";" ~ "tree_support_branch_diameter_double_wall" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDiameterOrganic = {";" ~ "tree_support_branch_diameter_organic" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDistance = {";" ~ "tree_support_branch_distance" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBranchDistanceOrganic = {";" ~ "tree_support_branch_distance_organic" ~ "=" ~ Number ~  LINE_END}
+TreeSupportBrimWidth = {";" ~ "tree_support_brim_width" ~ "=" ~ Number ~  LINE_END}
+TreeSupportTipDiameter = {";" ~ "tree_support_tip_diameter" ~ "=" ~ Number ~  LINE_END}
+TreeSupportTopRate = {";" ~ "tree_support_top_rate" ~ "=" ~ Percentage ~  LINE_END}
+TreeSupportWallCount = {";" ~ "tree_support_wall_count" ~ "=" ~ Number ~  LINE_END}
+UpwardCompatibleMachine = {";" ~ "upward_compatible_machine" ~ "=" ~ String ~  LINE_END}
+UseFirmwareRetraction = {";" ~ "use_firmware_retraction" ~ "=" ~ Number ~  LINE_END}
+UseRelativeEDistances = {";" ~ "use_relative_e_distances" ~ "=" ~ Number ~  LINE_END}
+WallDirection = {";" ~ "wall_direction" ~ "=" ~ String ~  LINE_END}
+WallDistributionCount = {";" ~ "wall_distribution_count" ~ "=" ~ Number ~  LINE_END}
+WallFilament = {";" ~ "wall_filament" ~ "=" ~ Number ~  LINE_END}
+WallGenerator = {";" ~ "wall_generator" ~ "=" ~ String ~  LINE_END}
+WallLoops = {";" ~ "wall_loops" ~ "=" ~ Number ~  LINE_END}
+WallSequence = {";" ~ "wall_sequence" ~ "=" ~ String ~  LINE_END}
+WallTransitionAngle = {";" ~ "wall_transition_angle" ~ "=" ~ Number ~  LINE_END}
+WallTransitionFilterDeviation = {";" ~ "wall_transition_filter_deviation" ~ "=" ~ Percentage ~  LINE_END}
+WallTransitionLength = {";" ~ "wall_transition_length" ~ "=" ~ Percentage ~  LINE_END}
+Wipe = {";" ~ "wipe" ~ "=" ~ Number ~  LINE_END}
+WipeBeforeExternalLoop = {";" ~ "wipe_before_external_loop" ~ "=" ~ Number ~  LINE_END}
+WipeDistance = {";" ~ "wipe_distance" ~ "=" ~ Number ~  LINE_END}
+WipeOnLoops = {";" ~ "wipe_on_loops" ~ "=" ~ Number ~  LINE_END}
+WipeSpeed = {";" ~ "wipe_speed" ~ "=" ~ Percentage ~  LINE_END}
+WipeTowerBridging = {";" ~ "wipe_tower_bridging" ~ "=" ~ Number ~  LINE_END}
+WipeTowerConeAngle = {";" ~ "wipe_tower_cone_angle" ~ "=" ~ Number ~  LINE_END}
+WipeTowerExtraFlow = {";" ~ "wipe_tower_extra_flow" ~ "=" ~ Percentage ~  LINE_END}
+WipeTowerExtraSpacing = {";" ~ "wipe_tower_extra_spacing" ~ "=" ~ Percentage ~  LINE_END}
+WipeTowerFilament = {";" ~ "wipe_tower_filament" ~ "=" ~ Number ~  LINE_END}
+WipeTowerMaxPurgeSpeed = {";" ~ "wipe_tower_max_purge_speed" ~ "=" ~ Number ~  LINE_END}
+WipeTowerNoSparseLayers = {";" ~ "wipe_tower_no_sparse_layers" ~ "=" ~ Number ~  LINE_END}
+WipeTowerRotationAngle = {";" ~ "wipe_tower_rotation_angle" ~ "=" ~ Number ~  LINE_END}
+WipeTowerX = {";" ~ "wipe_tower_x" ~ "=" ~ Number ~  LINE_END}
+WipeTowerY = {";" ~ "wipe_tower_y" ~ "=" ~ Number ~  LINE_END}
+WipingVolumesExtruders = {";" ~ "wiping_volumes_extruders" ~ "=" ~ (Number ~ ("," ~ Number)*)? ~  LINE_END}
+XyContourCompensation = {";" ~ "xy_contour_compensation" ~ "=" ~ Number ~  LINE_END}
+XyHoleCompensation = {";" ~ "xy_hole_compensation" ~ "=" ~ Number ~  LINE_END}
+ZHop = {";" ~ "z_hop" ~ "=" ~ Number ~  LINE_END}
+ZHopTypes = {";" ~ "z_hop_types" ~ "=" ~ String ~  LINE_END}
+ZOffset = {";" ~ "z_offset" ~ "=" ~ Number ~  LINE_END}
+FirstLayerBedTemperature = {";" ~ "first_layer_bed_temperature" ~ "=" ~ Number ~  LINE_END}
+BedShape = {";" ~ "bed_shape" ~ "=" ~ (Number ~ "x" ~ Number ~ ("," ~ Number ~ "x" ~ Number)*)? ~  LINE_END}
+FirstLayerTemperature = {";" ~ "first_layer_temperature" ~ "=" ~ Number ~  LINE_END}
+FirstLayerHeight = {";" ~ "first_layer_height" ~ "=" ~ Number ~  LINE_END}
+*/

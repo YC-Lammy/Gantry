@@ -197,12 +197,13 @@ impl DBusInstance {
         &self,
         token: &str,
         filename: &str,
+        exclude_objects: Vec<String>,
     ) -> PrinterResult<StartPrintJobResult> {
         if let Some(err) = self.inner.validate_token_state(token).await {
             return PrinterResult::err(err);
         }
 
-        return self.inner.start_print_job(filename).await;
+        return self.inner.start_print_job(filename, exclude_objects).await;
     }
     /// pause the print job
     pub async fn pause_print_job(&self, token: &str) -> PrinterResult<()> {

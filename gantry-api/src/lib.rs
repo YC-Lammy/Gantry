@@ -29,12 +29,16 @@ pub enum PrinterErrorCode {
     PrinterConfigParseError,
     /// error parsing gcode
     GcodeParseError,
+    /// runtime gcode error
+    GcodeError,
     /// print job already running
     PrintJobRunning,
     /// no print job running
     PrintJobNotRunning,
     /// file not found
     FileNotFound,
+    /// file read error
+    FileReadError,
     /// file system has full capacity
     FileCapacityFull,
 }
@@ -316,7 +320,7 @@ pub trait Printer {
     /////////////////////////////////////////////
 
     /// start a print job
-    pub async fn start_print_job(&self, token: &str, filename: &str) -> PrinterResult<StartPrintJobResult>;
+    pub async fn start_print_job(&self, token: &str, filename: &str, exclude_objects: Vec<String>) -> PrinterResult<StartPrintJobResult>;
     /// pause the print job
     pub async fn pause_print_job(&self, token: &str) -> PrinterResult<()>;
     /// resume the print job

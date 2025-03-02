@@ -1,20 +1,15 @@
 pub struct Auth {
-    printer_uuid: u128
+    printer_uuid: u128,
 }
 
 impl Auth {
     pub fn acquire(printer_uuid: u128) -> Self {
-        Self { 
-            printer_uuid 
-        }
+        Self { printer_uuid }
     }
 
     /// login printer, returns jwt token and refresh token
     pub fn login(&self, password: &str) -> Option<(String, String)> {
-        crate::global_auth::login(
-            itoa::Buffer::new().format(self.printer_uuid), 
-            password
-        )
+        crate::global_auth::login(itoa::Buffer::new().format(self.printer_uuid), password)
     }
 
     /// logout from printer, token would be invalidated
