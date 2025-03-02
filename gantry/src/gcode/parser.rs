@@ -395,7 +395,7 @@ impl SlicerConfig{
 async fn test_async(){
     const TESTS: &[(&[u8], &str, &str, u32, f32, u64)] = &[
         (
-            include_bytes!("../../tests/3dbenchy_ABS_45m43s.gcode"),
+            include_bytes!("../../tests/OrcaBenchy.gcode"),
             "OrcaSlicer",
             "2.2.0",
             240,
@@ -420,7 +420,7 @@ async fn test_async(){
 fn test_blocking(){
     const TESTS: &[(&str, &str, &str, u32, f32, u64)] = &[
         (
-            include_str!("../../tests/3dbenchy_ABS_45m43s.gcode"),
+            include_str!("../../tests/OrcaBenchy.gcode"),
             "OrcaSlicer",
             "2.2.0",
             240,
