@@ -6,12 +6,12 @@ use super::vm::GcodeVM;
 
 pub fn handler<'a>(
     vm: &'a GcodeVM,
-    params: Vec<&'a str>,
+    params: &'a [String],
 ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + Sync + 'a>> {
     Box::pin(handler_inner(vm, params))
 }
 
-async fn handler_inner(vm: &GcodeVM, params: Vec<&str>) -> anyhow::Result<String> {
+async fn handler_inner(vm: &GcodeVM, params: &[String]) -> anyhow::Result<String> {
     let mut move_ = Move {
         start_velocity: f32::NAN,
         target_velocity: f32::NAN,

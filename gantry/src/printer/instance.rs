@@ -11,6 +11,7 @@ use axum::{Extension, Json};
 use axum_auth::AuthBearer;
 use serde::{Deserialize, Serialize};
 
+use tokio::fs::File;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -20,6 +21,7 @@ use uuid::Uuid;
 use super::auth::Auth;
 use super::dbus::DBusInstance;
 use crate::config::InstanceConfig;
+use crate::gcode::GcodeFile;
 
 pub struct PrintJob {
     pub uuid: Uuid,
@@ -40,7 +42,7 @@ pub struct Instance {
     auth: Auth,
     /// the printer object, will be none unless state is ready
     printer: Arc<RwLock<super::Printer>>,
-    print_jobs: RwLock<Vec<JoinHandle<()>>>,
+    print_jobs: RwLock<Vec<(Uuid, String)>>,
 }
 
 impl Instance {
@@ -327,9 +329,9 @@ impl Instance {
     pub async fn run_gcode(&self, script: String) -> PrinterResult<()> {
         let printer = self.printer.read().await;
 
-        if let Err(e) = printer.run_gcodes(script).await {
+        if let Err(e) = printer.run_gcode_string(script).await {
             return PrinterResult::err(PrinterError {
-                code: PrinterErrorCode::GcodeParseError,
+                code: PrinterErrorCode::GcodeError,
                 message: e.to_string(),
             });
         }
@@ -351,7 +353,32 @@ impl Instance {
         filename: &str,
         exclude_objects: Vec<String>,
     ) -> PrinterResult<StartPrintJobResult> {
-        todo!()
+        // create path
+        let path = self.printer_path.join("gcodes").join(filename);
+
+        let file = match crate::files::open_gcode_file(path).await {
+            Ok(f) => f,
+            Err(e) => {
+                return PrinterResult::err(PrinterError {
+                    code: PrinterErrorCode::GcodeParseError,
+                    message: e.to_string(),
+                });
+            }
+        };
+
+        let uuid = Uuid::new_v4();
+
+        let printer = self.printer.clone();
+
+        printer
+            .read()
+            .await
+            .spawn_print_job(uuid, file, exclude_objects)
+            .await;
+
+        return PrinterResult::ok(StartPrintJobResult {
+            job_id: uuid.to_string(),
+        });
     }
     /// pause the print job
     pub async fn pause_print_job(&self) -> PrinterResult<()> {

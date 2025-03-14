@@ -1,8 +1,10 @@
 mod config;
 mod dbus;
 mod extensions;
+mod files;
 mod gcode;
 mod global_auth;
+mod graphql_server;
 mod kinematics;
 mod printer;
 mod server;
@@ -35,10 +37,13 @@ pub async fn main() {
         .arg(clap::arg!(--tls_key <KEY> "path to tls private key pem file"))
         .get_matches();
 
+    // get the port to serve at
     let port = cli_args
         .get_one::<u16>("port")
         .cloned()
         .unwrap_or(DEFAULT_HTTP_PORT);
+
+    // get the configuration path
     let gantry_path = cli_args
         .get_one::<PathBuf>("gantry_path")
         .cloned()
@@ -57,9 +62,10 @@ pub async fn main() {
         .canonicalize()
         .expect("path error");
 
+    // buffer for reading config file
     let mut config_file = String::new();
 
-    // open the config file in write mode
+    // open the config file in write mode and read to string
     OpenOptions::new()
         .read(true)
         .write(true)
@@ -147,10 +153,20 @@ pub async fn main() {
         .nest("/server", server::create_service_router())
         .nest("/printer", printer::create_service_router());
 
+    // create router for graphql
+    let graphql_router = graphql_server::create_router();
+
+    // all graphql actions must be authorised
+    let graphql_router = graphql_router.layer(axum::middleware::from_fn(global_auth::auth_middleware));
+
+    // merge routers
+    let app = app.merge(graphql_router);
+
     // run our app with hyper, listening globally
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .expect("failed to bind TCP port");
 
+    // serve axum
     axum::serve(listener, app).await.unwrap();
 }

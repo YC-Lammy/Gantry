@@ -1,14 +1,19 @@
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use gantry_api::PrinterErrorCode;
 use tokio::io::AsyncReadExt;
+use tokio::sync::RwLock;
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 use crate::config::PrinterConfig;
+use crate::gcode::GcodeFile;
 use crate::gcode::vm::GcodeVM;
 
-use super::action::ActionQueue;
+use super::action::{ActionQueue, ActionState, PrinterAction};
 
 #[derive(Debug, Clone)]
 pub enum State {
@@ -21,22 +26,55 @@ pub enum State {
     Shutdown,
 }
 
+#[derive(Debug)]
+pub enum PrinterEvent {
+    Action(PrinterAction),
+    RunNextPrintJob,
+}
+
+#[derive(Debug)]
+pub struct PrintJob {
+    pub id: Uuid,
+    /// filename
+    pub file: Arc<GcodeFile>,
+    /// linux timestamp
+    pub start_timestamp: Option<u64>,
+    /// exluded objects
+    pub exlude_objects: Vec<String>,
+}
+
 pub struct Printer {
+    /// generic status of printer
     state: State,
+    /// status of physical printer
+    action_state: Arc<ActionState>,
+    /// queue for kinematic actions, trapezoid generator
     action_queue: Arc<ActionQueue>,
-    vm: GcodeVM,
+    /// gcode virtual machine
+    vm: Arc<GcodeVM>,
+    /// job queue
+    print_job_queue: RwLock<VecDeque<PrintJob>>,
+    /// sender to send events to event loop
+    event_sender: UnboundedSender<PrinterEvent>,
+    /// join handle for event loop
     event_loop_handle: Option<JoinHandle<()>>,
 }
 
 impl Printer {
     pub fn new() -> Self {
-        let action_queue = Arc::new(ActionQueue::new());
-        let vm = GcodeVM::new(action_queue.clone());
+        let (event_sender, event_reciever) = unbounded_channel();
+
+        let action_state = Arc::new(ActionState::new());
+        let action_queue = Arc::new(ActionQueue::new(action_state.clone(), event_sender.clone()));
+        let vm = Arc::new(GcodeVM::new(action_queue.clone()));
 
         Self {
             state: State::Startup,
+            action_state,
             action_queue,
             vm,
+            print_job_queue: RwLock::const_new(VecDeque::new()),
+            event_sender,
             event_loop_handle: None,
         }
     }
@@ -55,7 +93,7 @@ impl Printer {
         // abort the action queue
         self.action_queue.suspend();
         // abort the vm
-        self.vm.abort();
+        self.vm.suspend();
         // set state to shutdown
         self.state = State::Shutdown;
     }
@@ -130,7 +168,35 @@ impl Printer {
         todo!()
     }
 
-    pub async fn run_gcodes(&self, script: String) -> anyhow::Result<()> {
-        return self.vm.run_gcodes(&script).await;
+    pub fn is_gcode_running(&self) -> bool {
+        self.action_state
+            .gcode_running
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// spawns a tokio task to run print jobs
+    pub async fn spawn_print_job(
+        &self,
+        id: Uuid,
+        file: Arc<GcodeFile>,
+        exlude_objects: Vec<String>,
+    ) {
+        let mut job_queue = self.print_job_queue.write().await;
+
+        job_queue.push_back(PrintJob {
+            id,
+            file,
+            start_timestamp: None,
+            exlude_objects,
+        });
+
+        if !self.is_gcode_running() {
+            let _ = self.event_sender.send(PrinterEvent::RunNextPrintJob);
+        }
+    }
+
+    /// runs a gcode string immediately
+    pub async fn run_gcode_string(&self, script: String) -> anyhow::Result<()> {
+        return self.vm.run_gcode_string(&script).await;
     }
 }

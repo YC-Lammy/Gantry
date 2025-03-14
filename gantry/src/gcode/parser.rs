@@ -5,25 +5,25 @@ use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
 
+use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncRead;
 use tokio::io::BufReader;
-use tokio::io::AsyncBufReadExt;
 
 #[derive(Parser)]
 #[grammar = "gcode/gcode.pest"]
 struct GcodeParser;
 
 #[derive(Debug, Default)]
-pub struct GcodeFile{
+pub struct GcodeFile {
     pub slicer: SlicerInfo,
     pub thumbnails: Vec<Thumbnail>,
     pub meta: Meta,
     pub config: SlicerConfig,
-    pub commands: Vec<GcodeCommand>
+    pub commands: Vec<GcodeCommand>,
 }
 
-impl GcodeFile{
-    pub fn blocking_parse(input: &str) -> anyhow::Result<GcodeFile>{
+impl GcodeFile {
+    pub fn blocking_parse(input: &str) -> anyhow::Result<GcodeFile> {
         let mut pairs = GcodeParser::parse(Rule::GcodeFile, input)?;
 
         let pair = pairs.next().unwrap();
@@ -31,8 +31,8 @@ impl GcodeFile{
         // create gcode file
         let mut gcode_file = GcodeFile::default();
 
-        for p in pair.into_inner(){
-            match p.as_rule(){
+        for p in pair.into_inner() {
+            match p.as_rule() {
                 Rule::SlicerInfo => gcode_file.slicer = SlicerInfo::parse_pairs(p),
                 // thumbnail info, begin thumbnail
                 Rule::Thumbnail => gcode_file.thumbnails.push(Thumbnail::parse_pairs(p)),
@@ -42,15 +42,15 @@ impl GcodeFile{
                 Rule::Meta => gcode_file.meta.append_pair(p),
                 // a config line
                 Rule::Config => gcode_file.config.append_pair(p),
-                Rule::EOI => {},
-                _ => unreachable!()
+                Rule::EOI => {}
+                _ => unreachable!(),
             }
-        };
+        }
 
-        return Ok(gcode_file)
+        return Ok(gcode_file);
     }
 
-    pub async fn async_parse<R: AsyncRead + Unpin>(file: R) -> anyhow::Result<GcodeFile>{
+    pub async fn async_parse<R: AsyncRead + Unpin>(file: R) -> anyhow::Result<GcodeFile> {
         // reader
         let mut reader = BufReader::new(file);
         // buffer for reader
@@ -59,7 +59,7 @@ impl GcodeFile{
         let mut gcode_file = GcodeFile::default();
 
         // parse each line
-        while reader.read_until(b'\n', &mut buffer).await? != 0{
+        while reader.read_until(b'\n', &mut buffer).await? != 0 {
             // decode utf8
             let line = core::str::from_utf8(&buffer)?;
 
@@ -68,9 +68,9 @@ impl GcodeFile{
 
             // only a single pair
             let pair = pairs.next().unwrap();
-            
-            for p in pair.into_inner(){
-                match p.as_rule(){
+
+            for p in pair.into_inner() {
+                match p.as_rule() {
                     Rule::SlicerInfo => gcode_file.slicer = SlicerInfo::parse_pairs(p),
                     // thumbnail info, begin thumbnail
                     Rule::ThumbnailInfo => {
@@ -83,17 +83,19 @@ impl GcodeFile{
                         let mut buffer = Vec::new();
 
                         // parse thumbnail data lines
-                        while reader.read_until(b'\n', &mut buffer).await? != 0{
+                        while reader.read_until(b'\n', &mut buffer).await? != 0 {
                             // decode utf8
                             let line = core::str::from_utf8(&buffer)?;
 
-                            match GcodeParser::parse(Rule::ThumbnailLine, &line){
+                            match GcodeParser::parse(Rule::ThumbnailLine, &line) {
                                 // parse the line and append to buffer
-                                Ok(mut t) => Thumbnail::parse_line(t.next().unwrap(), &mut base64_data),
+                                Ok(mut t) => {
+                                    Thumbnail::parse_line(t.next().unwrap(), &mut base64_data)
+                                }
                                 // not a data line, must be the end
                                 Err(_) => {
                                     // try to parse the end line
-                                    if GcodeParser::parse(Rule::ThumbnailEnd, &line).is_ok(){
+                                    if GcodeParser::parse(Rule::ThumbnailEnd, &line).is_ok() {
                                         ended = true;
                                     }
 
@@ -102,42 +104,46 @@ impl GcodeFile{
                             }
 
                             buffer.clear();
-                        };
-                        // if thumbnail is not ended, treat it as comment and discard
-                        if ended{
-                            // decode base64 data
-                            let data = base64::prelude::BASE64_STANDARD.decode(base64_data).unwrap();
-                            // push thumbnail to file
-                            gcode_file.thumbnails.push(Thumbnail::new(width, height, data));
                         }
-                    },
+                        // if thumbnail is not ended, treat it as comment and discard
+                        if ended {
+                            // decode base64 data
+                            let data = base64::prelude::BASE64_STANDARD
+                                .decode(base64_data)
+                                .unwrap();
+                            // push thumbnail to file
+                            gcode_file
+                                .thumbnails
+                                .push(Thumbnail::new(width, height, data));
+                        }
+                    }
                     // a gcode line
                     Rule::GcodeLine => gcode_file.commands.push(GcodeCommand::parse_pairs(p)),
                     // a metadata line
                     Rule::Meta => gcode_file.meta.append_pair(p),
                     // a config line
                     Rule::Config => gcode_file.config.append_pair(p),
-                    Rule::EOI => {},
-                    _ => unreachable!()
+                    Rule::EOI => {}
+                    _ => unreachable!(),
                 }
             }
 
             // clear buffer
             buffer.clear();
         }
-        
-        return Ok(gcode_file)
+
+        return Ok(gcode_file);
     }
 }
 
 #[derive(Debug)]
-pub struct GcodeCommand{
+pub struct GcodeCommand {
     pub cmd: String,
-    pub params: Vec<String>
+    pub params: Vec<String>,
 }
 
-impl GcodeCommand{
-    fn parse_pairs(pair: Pair<Rule>) -> Self{
+impl GcodeCommand {
+    fn parse_pairs(pair: Pair<Rule>) -> Self {
         let mut line = pair.as_str();
 
         // remove comment at line end
@@ -162,117 +168,127 @@ impl GcodeCommand{
             params.push(p.to_string());
         }
 
-        return Self { 
-            cmd: command.to_string(), 
-            params
-        }
+        return Self {
+            cmd: command.to_string(),
+            params,
+        };
     }
 }
 
 #[derive(Debug, Default)]
-pub struct SlicerInfo{
+pub struct SlicerInfo {
     pub slicer: Option<String>,
     pub version: Option<String>,
     pub date: Option<String>,
     pub time: Option<String>,
 }
 
-impl SlicerInfo{
-    fn parse_pairs(pair: Pair<Rule>) -> Self{
+impl SlicerInfo {
+    fn parse_pairs(pair: Pair<Rule>) -> Self {
         let mut info = SlicerInfo::default();
 
-        for p in pair.into_inner(){
-            match p.as_rule(){
+        for p in pair.into_inner() {
+            match p.as_rule() {
                 Rule::Name => info.slicer = Some(p.as_str().to_string()),
                 Rule::SlicerVersion => info.version = Some(p.as_str().to_string()),
                 Rule::Date => info.date = Some(p.as_str().to_string()),
                 Rule::Time => info.time = Some(p.as_str().to_string()),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
 
-        return info
+        return info;
     }
 }
 
 #[derive(Debug)]
-pub struct Thumbnail{
+pub struct Thumbnail {
     pub width: u32,
     pub height: u32,
     /// decoded data
     pub data: Vec<u8>,
 }
 
-impl Thumbnail{
-    pub fn new(width: u32, height: u32, data: Vec<u8>) -> Self{
-        Self { width, height, data }
+impl Thumbnail {
+    pub fn new(width: u32, height: u32, data: Vec<u8>) -> Self {
+        Self {
+            width,
+            height,
+            data,
+        }
     }
 
-    fn parse_pairs(pair: Pair<Rule>) -> Self{
+    fn parse_pairs(pair: Pair<Rule>) -> Self {
         let mut width = 0;
         let mut height = 0;
         let mut base64_data = Vec::new();
 
-        for p in pair.into_inner(){
-            match p.as_rule(){
+        for p in pair.into_inner() {
+            match p.as_rule() {
                 Rule::ThumbnailInfo => {
                     // loop inner
-                    for i in p.into_inner(){
-                        match i.as_rule(){
+                    for i in p.into_inner() {
+                        match i.as_rule() {
                             // e.g. 300x300
                             Rule::ThumbnailPixels => {
                                 let (w, h) = i.as_str().split_once('x').unwrap();
                                 width = w.parse().unwrap();
                                 height = h.parse().unwrap();
-                            },
-                            Rule::ThumbnailBytes => {},
-                            _ => unreachable!()
+                            }
+                            Rule::ThumbnailBytes => {}
+                            _ => unreachable!(),
                         }
                     }
-                },
+                }
                 Rule::ThumbnailLine => {
                     // push the base64 data
                     base64_data.extend_from_slice(p.as_str()[1..].trim().as_bytes());
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             }
-        };
+        }
 
         // decode base64 data
-        let data = base64::prelude::BASE64_STANDARD.decode(base64_data).unwrap();
+        let data = base64::prelude::BASE64_STANDARD
+            .decode(base64_data)
+            .unwrap();
 
-        return Thumbnail { width, height, data }
+        return Thumbnail {
+            width,
+            height,
+            data,
+        };
     }
 
-    fn parse_info(pair: Pair<Rule>) -> (u32, u32){
+    fn parse_info(pair: Pair<Rule>) -> (u32, u32) {
         let mut width = 0;
         let mut height = 0;
 
         // loop inner
-        for i in pair.into_inner(){
-            match i.as_rule(){
+        for i in pair.into_inner() {
+            match i.as_rule() {
                 // e.g. 300x300
                 Rule::ThumbnailPixels => {
                     let (w, h) = i.as_str().split_once('x').unwrap();
                     width = w.parse().unwrap();
                     height = h.parse().unwrap();
-                },
-                Rule::ThumbnailBytes => {},
-                _ => unreachable!()
+                }
+                Rule::ThumbnailBytes => {}
+                _ => unreachable!(),
             }
-        };
+        }
 
-        return (width, height)
+        return (width, height);
     }
 
-    fn parse_line(line: Pair<Rule>, base64_buf: &mut Vec<u8>){
+    fn parse_line(line: Pair<Rule>, base64_buf: &mut Vec<u8>) {
         // push the base64 data
         base64_buf.extend_from_slice(line.as_str()[1..].trim().as_bytes());
     }
 }
 
 #[derive(Debug, Default)]
-pub struct Meta{
+pub struct Meta {
     pub filament_length_used: Option<f32>,
     pub filament_volume_used: Option<f32>,
     pub filament_weight_used: Option<f32>,
@@ -288,50 +304,60 @@ pub struct Meta{
     /// estimated print time in seconds
     pub estimated_print_time: Option<u64>,
     /// estimated first layer print time in seconds
-    pub estimated_first_layer_print_time: Option<u64>
+    pub estimated_first_layer_print_time: Option<u64>,
 }
 
-impl Meta{
-    fn append_pair(&mut self, pair: Pair<Rule>){
-        for p in pair.into_inner(){
-            match p.as_rule(){
+impl Meta {
+    fn append_pair(&mut self, pair: Pair<Rule>) {
+        for p in pair.into_inner() {
+            match p.as_rule() {
                 Rule::FilamentLengthUsed => {
-                    self.filament_length_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_length_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::FilamentVolumeUsed => {
-                    self.filament_volume_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_volume_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::FilamentWeightUsed => {
-                    self.filament_weight_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_weight_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::FilamentCost => {
-                    self.filament_cost = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_cost =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::TotalFilamentLengthUsed => {
-                    self.total_filament_length_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.total_filament_length_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::TotalFilamentVolumeUsed => {
-                    self.filament_volume_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_volume_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::TotalFilamentWeightUsed => {
-                    self.filament_weight_used = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.filament_weight_used =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::TotalLayersCount => {
-                    self.total_layers_count = Some(p.into_inner().next().unwrap().as_str().parse().unwrap());
+                    self.total_layers_count =
+                        Some(p.into_inner().next().unwrap().as_str().parse().unwrap());
                 }
                 Rule::TotalFilamentWeightUsedWipeTower => {
-                    self.total_filament_used_wipe_tower = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.total_filament_used_wipe_tower =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::TotalFilamentCost => {
-                    self.total_filament_cost = Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
+                    self.total_filament_cost =
+                        Some(fast_float::parse(p.into_inner().next().unwrap().as_str()).unwrap());
                 }
                 Rule::EstimatedPrintTime => {
                     let time = p.into_inner().next().unwrap();
 
                     let mut t = 0;
 
-                    for i in time.into_inner(){
-                        match i.as_rule(){
+                    for i in time.into_inner() {
+                        match i.as_rule() {
                             Rule::PrintTimeHour => {
                                 t += i.as_str().parse::<u64>().unwrap() * 60 * 60;
                             }
@@ -341,7 +367,7 @@ impl Meta{
                             Rule::PrintTimeSeconds => {
                                 t += i.as_str().parse::<u64>().unwrap();
                             }
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
 
@@ -352,8 +378,8 @@ impl Meta{
 
                     let mut t = 0;
 
-                    for i in time.into_inner(){
-                        match i.as_rule(){
+                    for i in time.into_inner() {
+                        match i.as_rule() {
                             Rule::PrintTimeHour => {
                                 t += i.as_str().parse::<u64>().unwrap() * 60 * 60;
                             }
@@ -363,25 +389,25 @@ impl Meta{
                             Rule::PrintTimeSeconds => {
                                 t += i.as_str().parse::<u64>().unwrap();
                             }
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
 
                     self.estimated_first_layer_print_time = Some(t)
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
-        };
+        }
     }
 }
 
 #[derive(Debug, Default)]
-pub struct SlicerConfig{
+pub struct SlicerConfig {
     pub properties: HashMap<String, String>,
 }
 
-impl SlicerConfig{
-    fn append_pair(&mut self, pair: Pair<Rule>){
+impl SlicerConfig {
+    fn append_pair(&mut self, pair: Pair<Rule>) {
         let mut p = pair.into_inner();
 
         let name = p.next().unwrap().as_str().to_string();
@@ -392,24 +418,22 @@ impl SlicerConfig{
 }
 
 #[tokio::test]
-async fn test_async(){
-    const TESTS: &[(&[u8], &str, &str, u32, f32, u64)] = &[
-        (
-            include_bytes!("../../tests/OrcaBenchy.gcode"),
-            "OrcaSlicer",
-            "2.2.0",
-            240,
-            3701.23,
-            2743
-        )
-    ];
+async fn test_async() {
+    const TESTS: &[(&[u8], &str, &str, u32, f32, u64)] = &[(
+        include_bytes!("../../tests/OrcaBenchy.gcode"),
+        "OrcaSlicer",
+        "2.2.0",
+        240,
+        3701.23,
+        2743,
+    )];
 
-    for (data, slicer, version, layers, filament_length, est_time) in TESTS{
+    for (data, slicer, version, layers, filament_length, est_time) in TESTS {
         let r = tokio::io::BufReader::new(*data);
         let gf = GcodeFile::async_parse(r).await.unwrap();
 
-        assert!(gf.slicer.slicer.is_some_and(|s|s.eq(slicer)));
-        assert!(gf.slicer.version.is_some_and(|v|v.eq(version)));
+        assert!(gf.slicer.slicer.is_some_and(|s| s.eq(slicer)));
+        assert!(gf.slicer.version.is_some_and(|v| v.eq(version)));
         assert!(gf.meta.total_layers_count == Some(*layers));
         assert!(gf.meta.filament_length_used == Some(*filament_length));
         assert!(gf.meta.estimated_print_time == Some(*est_time));
@@ -417,23 +441,21 @@ async fn test_async(){
 }
 
 #[test]
-fn test_blocking(){
-    const TESTS: &[(&str, &str, &str, u32, f32, u64)] = &[
-        (
-            include_str!("../../tests/OrcaBenchy.gcode"),
-            "OrcaSlicer",
-            "2.2.0",
-            240,
-            3701.23,
-            2743
-        )
-    ];
+fn test_blocking() {
+    const TESTS: &[(&str, &str, &str, u32, f32, u64)] = &[(
+        include_str!("../../tests/OrcaBenchy.gcode"),
+        "OrcaSlicer",
+        "2.2.0",
+        240,
+        3701.23,
+        2743,
+    )];
 
-    for (data, slicer, version, layers, filament_length, est_time) in TESTS{
+    for (data, slicer, version, layers, filament_length, est_time) in TESTS {
         let gf = GcodeFile::blocking_parse(*data).unwrap();
 
-        assert!(gf.slicer.slicer.is_some_and(|s|s.eq(slicer)));
-        assert!(gf.slicer.version.is_some_and(|v|v.eq(version)));
+        assert!(gf.slicer.slicer.is_some_and(|s| s.eq(slicer)));
+        assert!(gf.slicer.version.is_some_and(|v| v.eq(version)));
         assert!(gf.meta.total_layers_count == Some(*layers));
         assert!(gf.meta.filament_length_used == Some(*filament_length));
         assert!(gf.meta.estimated_print_time == Some(*est_time));

@@ -8,6 +8,7 @@ gantry-api = {path = "../gantry-api"}
 
 ahash = "0.8"
 anyhow = "1"
+async-stream = "0.3.6"
 axum = "0.8"
 axum-auth = "0.8"
 base64 = "0.22"
@@ -15,9 +16,15 @@ clap = {version = "4.5", features = ["derive"]}
 convert_case = "0.8.0"
 dirs = "5.0"
 fast-float = "0.2"
+futures = "0.3"
 itertools = "0.14"
 itoa = "1"
+juniper = "0.16"
+juniper_axum = {version="0.2.0", features = ["subscriptions"]}
+juniper_graphql_ws = "0.4"
 lazy_static = "1.5"
+log = "*"
+notify = "8.0"
 pest = "2"
 pest_derive = "2"
 portable-atomic = { version = "1", features = ["float"]}
@@ -27,3 +34,7 @@ tokio = {version ="1", features = ["full"]}
 unicode-id-start = "1.3.1"
 uuid = {version = "1", features = ["v4"]}
 zbus = {version = "5.5", default-features = false, features = ["tokio"]}
+
+[features]
+default = ["std"]
+std = []

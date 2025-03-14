@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use portable_atomic::AtomicF32;
 
-use tokio::sync::Mutex;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::{Mutex, RwLock};
+
+use super::printer::PrinterEvent;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Move {
@@ -64,6 +66,7 @@ impl KinematicMove {
 }
 
 /// extrusion only move
+#[derive(Debug)]
 pub struct ExtrusionMove {
     /// flow rate in mm/s
     pub flow: f32,
@@ -87,19 +90,14 @@ pub enum Action {
     },
 }
 
+#[derive(Debug)]
 pub enum PrinterAction {
     KinematicMove(KinematicMove),
     ExtrusionMove(ExtrusionMove),
     SetBedTemp(f32),
     SetBedTempWait(f32),
-    SetExtruderTemp{
-        index: usize,
-        temp: f32,
-    },
-    SetExtruderTempWait{
-        index: usize,
-        temp: f32,
-    }
+    SetExtruderTemp { index: usize, temp: f32 },
+    SetExtruderTempWait { index: usize, temp: f32 },
 }
 
 pub struct ActionState {
@@ -114,6 +112,10 @@ pub struct ActionState {
     /// use absolute positioning
     pub absolute_position: AtomicBool,
     pub absolute_extrution: AtomicBool,
+    /// current running gcode line number
+    pub gcode_line: AtomicUsize,
+    pub gcode_running: AtomicBool,
+    pub exclude_objects: RwLock<Vec<String>>,
     /// x origin
     pub x_origin: AtomicF32,
     /// y origin
@@ -131,7 +133,7 @@ pub struct ActionState {
 }
 
 impl ActionState {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             max_velocity: AtomicF32::new(100.0),
             max_accel: AtomicF32::new(3000.0),
@@ -139,6 +141,9 @@ impl ActionState {
             minimum_cruise_ratio: AtomicF32::new(0.5),
             absolute_position: AtomicBool::new(false),
             absolute_extrution: AtomicBool::new(false),
+            gcode_line: AtomicUsize::new(0),
+            gcode_running: AtomicBool::new(false),
+            exclude_objects: RwLock::const_new(Vec::new()),
             x_origin: AtomicF32::new(0.0),
             y_origin: AtomicF32::new(0.0),
             z_origin: AtomicF32::new(0.0),
@@ -167,20 +172,16 @@ pub struct ActionQueue {
     pub state: Arc<ActionState>,
 
     suspended: AtomicBool,
-    encoded_sender: Sender<PrinterAction>,
-    encoded_receiver: Mutex<Receiver<PrinterAction>>,
+    event_sender: UnboundedSender<PrinterEvent>,
     inner: Mutex<ActionQueueInner>,
 }
 
 impl ActionQueue {
-    pub fn new() -> Self {
-        let (s, r) = channel(10);
-
+    pub fn new(state: Arc<ActionState>, event_sender: UnboundedSender<PrinterEvent>) -> Self {
         Self {
-            state: Arc::new(ActionState::new()),
+            state,
             suspended: AtomicBool::new(false),
-            encoded_sender: s,
-            encoded_receiver: Mutex::new(r),
+            event_sender,
             inner: Default::default(),
         }
     }
@@ -293,13 +294,13 @@ impl ActionQueue {
             Action::SetBedTemp(t) => {
                 let mut inner = self.inner.lock().await;
 
-                if inner.first_move.is_some(){
+                if inner.first_move.is_some() {
                     inner.next_actions.push_back(PrinterAction::SetBedTemp(t));
-                } else{
+                } else {
                     // send action immediatly if queue is empty
                     self.send_action(PrinterAction::SetBedTemp(t)).await;
                 }
-            },
+            }
             Action::SetBedTempWait(t) => {
                 self.flush().await;
                 self.send_action(PrinterAction::SetBedTempWait(t)).await;
@@ -314,7 +315,8 @@ impl ActionQueue {
                         .push_back(PrinterAction::SetExtruderTemp { index, temp });
                 } else {
                     // send immediately if queue is empty
-                    self.send_action(PrinterAction::SetExtruderTemp { index, temp }).await;
+                    self.send_action(PrinterAction::SetExtruderTemp { index, temp })
+                        .await;
                 }
             }
             Action::SetExtruderTempWait { index, temp } => {
@@ -347,20 +349,14 @@ impl ActionQueue {
     /// encodes the move with provided next move
     async fn encode_and_send(&self, move_: Move, next_move: Option<&Move>) {}
 
-    async fn send_action(&self, action: PrinterAction) {}
+    async fn send_action(&self, action: PrinterAction) {
+        let _ = self.event_sender.send(PrinterEvent::Action(action));
+    }
 
     /// clear the action queue
     pub async fn clear(&self) {
         let mut inner = self.inner.lock().await;
         inner.first_move = None;
         inner.next_actions.clear();
-    }
-
-    /// this function should only be called by the Printer's event loop
-    pub async fn read_next_encoded(&self) -> PrinterAction {
-        // the sender channel will not close
-        let mut recv = self.encoded_receiver.lock().await;
-
-        recv.recv().await.unwrap()
     }
 }

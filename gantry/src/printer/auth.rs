@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Auth {
     printer_uuid: u128,
 }
